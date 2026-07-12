@@ -215,23 +215,29 @@ mark.kommentare-mark:hover{background:var(--k-mark-active)}
 mark.kommentare-mark.is-active{background:var(--k-mark-active);box-shadow:0 0 0 2px var(--k-mark-edge)}
 mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offset:2px}
 
-/* ---- Element-Kommentare (Boxen/Container statt Text) ---- */
+/* ---- Element-/Punkt-Kommentare ---- */
 .kommentare-picking{cursor:crosshair}
 .kommentare-picking *{cursor:crosshair!important}
-/* „Element kommentieren“ sitzt über den Notizen in der Randspalte */
-.kommentare-margin>.kommentare-el-toggle{
-  width:100%;justify-content:center;margin-bottom:.9rem;
+/* Modus-Knöpfe („Element kommentieren“ / „Punkt anheften“) über den Notizen */
+.kommentare-margin>.kommentare-mode-toggle{
+  width:100%;justify-content:center;margin-bottom:.5rem;
 }
-.kommentare-el-toggle.is-active{
+.kommentare-mode-toggle.is-active{
   background:var(--k-accent);color:var(--k-accent-ink);border-color:var(--k-accent);
 }
-/* Umriss, der im Auswahl-Modus dem Element unter dem Zeiger folgt */
+/* Umriss, der im Element-Modus dem Element unter dem Zeiger folgt */
 .kommentare-hover{
   position:absolute;z-index:2147482990;pointer-events:none;box-sizing:border-box;
   border:2px dashed var(--k-el);border-radius:6px;
   background:color-mix(in srgb, var(--k-el) 10%, transparent);
 }
-/* Overlay-Ebene mit den gesetzten Element-Markierungen (Seiten-Koordinaten) */
+/* Im Punkt-Modus: kleiner Punkt am Zeiger */
+.kommentare-hover.kommentare-hover-point{
+  width:14px;height:14px;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:color-mix(in srgb, var(--k-el) 25%, transparent);
+}
+/* Overlay-Ebene mit den gesetzten Markierungen (Seiten-Koordinaten) */
 .kommentare-overlay{position:absolute;top:0;left:0;width:0;height:0;overflow:visible;
   z-index:2147482980;pointer-events:none}
 .kommentare-el-mark{
@@ -249,7 +255,20 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
   background:var(--k-el);color:var(--k-accent-ink);box-shadow:var(--k-shadow);
 }
 .kommentare-el-badge:focus-visible{outline:2px solid var(--k-focus);outline-offset:2px}
-.kommentare-note-element blockquote{font-family:var(--k-ui);font-style:normal;font-weight:600}
+/* Punkt-Marker (Pin) am angehefteten Ort */
+.kommentare-point-mark{
+  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
+  min-width:1.5rem;height:1.5rem;padding:0 .35rem;border-radius:var(--k-radius-pill);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--k-ui);font-size:.74rem;font-weight:700;line-height:1;
+  background:var(--k-el);color:var(--k-accent-ink);
+  border:2px solid var(--k-surface);box-shadow:var(--k-shadow);
+  transition:box-shadow .15s;
+}
+.kommentare-point-mark.is-active{box-shadow:0 0 0 4px color-mix(in srgb, var(--k-el) 35%, transparent)}
+.kommentare-point-mark:focus-visible{outline:2px solid var(--k-focus);outline-offset:2px}
+.kommentare-note-element blockquote,
+.kommentare-note-point blockquote{font-family:var(--k-ui);font-style:normal;font-weight:600}
 
 /* ---- Randspalte ---- */
 .kommentare-margin{font-family:var(--k-ui);font-size:.86rem;color:var(--k-ink)}
@@ -396,8 +415,10 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
   .kommentare-fab,.kommentare-panel,.kommentare-compose,.kommentare-help,
   .kommentare-gutter,.kommentare-toolbar,.kommentare-note-actions,
   .kommentare-hover{display:none!important}
-  /* Element-Markierungen im Druck ohne Fläche, nur farbiger Rahmen */
+  /* Element-Markierungen im Druck ohne Fläche, nur farbiger Rahmen; Punkte als Pin */
   .kommentare-el-mark{background:transparent!important;box-shadow:none!important;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .kommentare-point-mark{box-shadow:none!important;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .kommentare-body,.kommentare-body.kommentare-body-resizable{
     grid-template-columns:1fr!important;gap:1.2rem!important;

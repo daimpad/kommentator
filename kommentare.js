@@ -79,7 +79,11 @@
     elementBtn:         "Element kommentieren",
     elementBtnAktiv:    "Element-Auswahl beenden",
     elementAria:        "Element-Auswahl umschalten",
-    elementLabel:       "Element"
+    elementLabel:       "Element",
+    punktBtn:           "Punkt anheften",
+    punktBtnAktiv:      "Anheften beenden",
+    punktAria:          "Punkt-Modus umschalten",
+    punktLabel:         "Punkt"
   };
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
@@ -155,8 +159,11 @@
     this.emailSubject = options.emailSubject || "";
     // Beliebige Web-Elemente (Boxen/Container/Bilder) kommentierbar machen
     this.elements = options.elements !== false;
-    this._elementMode = false;      // aktiver Element-Auswahl-Modus
+    // Punkt an eine bestimmte Stelle „anheften" (Element-relativer Anker)
+    this.points = options.points !== false;
+    this._mode = null;              // null | "element" | "point"
     this.pendingEl = null;          // {el, css, tag, fingerprint} für neue Element-Anno
+    this.pendingPoint = null;       // {el, css, tag, fingerprint, rx, ry} für neuen Punkt
 
     // UI-Texte: Standard + per-Instanz-Overrides (i18n), ohne globalen Zustand zu berühren
     this.texte = {};
@@ -216,18 +223,26 @@
         themeBtn.type = "button";
         actions.appendChild(themeBtn);
       }
-      // Element-Auswahl umschalten (opt-in via elements, Standard an).
-      // Wird NICHT in die Aktionsleiste gehängt, sondern über die Notizen
-      // gesetzt (siehe Randspalte weiter unten).
+      // Auswahl-Modi umschalten (opt-in). Sitzen NICHT in der Aktionsleiste,
+      // sondern über den Notizen (siehe Randspalte weiter unten).
       var elementBtn = null;
       if (this.elements && !this.readOnly) {
-        elementBtn = el("button", "kommentare-btn kommentare-el-toggle");
+        elementBtn = el("button", "kommentare-btn kommentare-mode-toggle kommentare-el-toggle");
         elementBtn.type = "button";
         elementBtn.textContent = T.elementBtn;
         elementBtn.setAttribute("aria-pressed", "false");
         elementBtn.setAttribute("aria-label", T.elementAria);
       }
       this._elementBtn = elementBtn;
+      var pointBtn = null;
+      if (this.points && !this.readOnly) {
+        pointBtn = el("button", "kommentare-btn kommentare-mode-toggle kommentare-point-toggle");
+        pointBtn.type = "button";
+        pointBtn.textContent = T.punktBtn;
+        pointBtn.setAttribute("aria-pressed", "false");
+        pointBtn.setAttribute("aria-label", T.punktAria);
+      }
+      this._pointBtn = pointBtn;
 
       var importBtn = el("button", "kommentare-btn");
       importBtn.type = "button";
@@ -275,8 +290,9 @@
 
       // Randspalte
       var margin = el("aside", "kommentare-margin kommentare-scope");
-      // „Element kommentieren“ über den Notizen
+      // Auswahl-Modi über den Notizen
       if (elementBtn) margin.appendChild(elementBtn);
+      if (pointBtn) margin.appendChild(pointBtn);
       var head = el("div", "kommentare-margin-head"); head.textContent = T.notizenKopf;
       var notes = el("div", "kommentare-notes");
       notes.setAttribute("role", "list");
@@ -542,27 +558,34 @@
         this._gutterEl.addEventListener("keydown", this._onGutterKey);
       }
 
-      // Element-Kommentare
-      if (this.elements) {
+      // Element-/Punkt-Kommentare
+      if (this.elements || this.points) {
         if (this._elementBtn) {
-          this._onElToggle = function () { self._toggleElementMode(); };
+          this._onElToggle = function () { self._setMode(self._mode === "element" ? null : "element"); };
           this._elementBtn.addEventListener("click", this._onElToggle);
         }
-        // Hover-Umriss folgt dem Element unter dem Zeiger (nur im Element-Modus)
+        if (this._pointBtn) {
+          this._onPointToggle = function () { self._setMode(self._mode === "point" ? null : "point"); };
+          this._pointBtn.addEventListener("click", this._onPointToggle);
+        }
+        // Hover-Rückmeldung im aktiven Modus
         this._onElMove = function (e) {
-          if (!self._elementMode) return;
+          if (!self._mode) return;
           var t = self._elementTargetFrom(e.target);
-          if (t) self._showHover(t); else self._hideHover();
+          if (!t) { self._hideHover(); return; }
+          if (self._mode === "element") self._showHover(t);
+          else self._showHoverPoint(e.clientX, e.clientY);
         };
-        // Klick in Capture-Phase: Element wählen und Host-Handler/Links abfangen
+        // Klick in Capture-Phase: Ziel wählen und Host-Handler/Links abfangen
         this._onElClick = function (e) {
-          if (!self._elementMode) return;
+          if (!self._mode) return;
           var t = self._elementTargetFrom(e.target);
           if (!t) return;
           e.preventDefault(); e.stopPropagation();
-          self._selectElement(t);
+          if (self._mode === "element") self._selectElement(t);
+          else self._placePoint(t, e.clientX, e.clientY);
         };
-        this._onElKey = function (e) { if (e.key === "Escape" && self._elementMode) self._toggleElementMode(false); };
+        this._onElKey = function (e) { if (e.key === "Escape" && self._mode) self._setMode(null); };
         this.container.addEventListener("mousemove", this._onElMove);
         this.container.addEventListener("click", this._onElClick, true);
         document.addEventListener("keydown", this._onElKey);
@@ -586,7 +609,7 @@
       }
     },
 
-    /* ---- Element-Kommentare ------------------------------------------ */
+    /* ---- Element- & Punkt-Kommentare --------------------------------- */
     _elementTargetFrom: function (t) {
       if (!t || t.nodeType !== 1) return null;
       if (t === this.container) return null;
@@ -595,27 +618,43 @@
       if (this._hoverEl && (t === this._hoverEl || this._hoverEl.contains(t))) return null;
       return t;
     },
-    _toggleElementMode: function (force) {
-      var on = typeof force === "boolean" ? force : !this._elementMode;
-      this._elementMode = on;
-      this.container.classList.toggle("kommentare-picking", on);
+    _setMode: function (mode) {
+      var T = this.texte;
+      this._mode = mode || null;
+      this.container.classList.toggle("kommentare-picking", !!this._mode);
       if (this._elementBtn) {
-        this._elementBtn.classList.toggle("is-active", on);
-        this._elementBtn.setAttribute("aria-pressed", on ? "true" : "false");
-        this._elementBtn.textContent = on ? this.texte.elementBtnAktiv : this.texte.elementBtn;
+        var onE = this._mode === "element";
+        this._elementBtn.classList.toggle("is-active", onE);
+        this._elementBtn.setAttribute("aria-pressed", onE ? "true" : "false");
+        this._elementBtn.textContent = onE ? T.elementBtnAktiv : T.elementBtn;
       }
-      if (!on) this._hideHover();
+      if (this._pointBtn) {
+        var onP = this._mode === "point";
+        this._pointBtn.classList.toggle("is-active", onP);
+        this._pointBtn.setAttribute("aria-pressed", onP ? "true" : "false");
+        this._pointBtn.textContent = onP ? T.punktBtnAktiv : T.punktBtn;
+      }
+      if (!this._mode) this._hideHover();
       else if (this._panelEl) this._toggleMenu(false); // Menü schließen, Sicht frei
     },
     _showHover: function (elm) {
       if (!this._hoverEl) return;
       var r = elm.getBoundingClientRect();
       var h = this._hoverEl;
-      h.classList.remove("kommentare-hidden");
+      h.classList.remove("kommentare-hidden", "kommentare-hover-point");
       h.style.left = (r.left + window.scrollX) + "px";
       h.style.top = (r.top + window.scrollY) + "px";
       h.style.width = r.width + "px";
       h.style.height = r.height + "px";
+    },
+    _showHoverPoint: function (x, y) {
+      if (!this._hoverEl) return;
+      var h = this._hoverEl;
+      h.classList.remove("kommentare-hidden");
+      h.classList.add("kommentare-hover-point");
+      h.style.width = ""; h.style.height = "";
+      h.style.left = (x + window.scrollX) + "px";
+      h.style.top = (y + window.scrollY) + "px";
     },
     _hideHover: function () {
       if (this._hoverEl) this._hoverEl.classList.add("kommentare-hidden");
@@ -663,59 +702,94 @@
     _selectElement: function (elm) {
       this.pending = null;
       this._editing = null;
+      this.pendingPoint = null;
       this.pendingEl = {
         el: elm, css: this._cssPathOf(elm),
         tag: elm.tagName.toLowerCase(), fingerprint: this._fingerprint(elm)
       };
-      this._toggleElementMode(false);
+      this._setMode(null);
       this._openCompose(elm.getBoundingClientRect());
     },
-    _renderElementOverlays: function () {
+    // Punkt an eine Stelle heften: Element + relative Position (rx,ry) darin.
+    _placePoint: function (elm, clientX, clientY) {
+      var r = elm.getBoundingClientRect();
+      var rx = r.width ? (clientX - r.left) / r.width : 0.5;
+      var ry = r.height ? (clientY - r.top) / r.height : 0.5;
+      rx = Math.min(1, Math.max(0, rx));
+      ry = Math.min(1, Math.max(0, ry));
+      this.pending = null;
+      this._editing = null;
+      this.pendingEl = null;
+      this.pendingPoint = {
+        el: elm, css: this._cssPathOf(elm),
+        tag: elm.tagName.toLowerCase(), fingerprint: this._fingerprint(elm), rx: rx, ry: ry
+      };
+      this._setMode(null);
+      this._openCompose({ left: clientX, right: clientX, top: clientY, bottom: clientY });
+    },
+    _renderOverlays: function () {
       if (!this._overlayEl) return;
       var self = this, T = this.texte;
       this._overlayEl.innerHTML = "";
-      var els = Array.from(this.annos.values()).filter(function (a) { return a.kind === "element"; });
-      els.sort(function (a, b) { return self._annoTop(a) - self._annoTop(b); });
-      els.forEach(function (a, i) {
-        var elx = self._resolveElement(a);
-        if (!elx) return;
-        var box = el("div", "kommentare-el-mark");
-        box.dataset.annoId = a.id;
-        var badge = el("span", "kommentare-el-badge");
-        badge.textContent = String(i + 1);
+      var items = Array.from(this.annos.values()).filter(function (a) {
+        return a.kind === "element" || a.kind === "point";
+      });
+      items.sort(function (a, b) { return self._annoTop(a) - self._annoTop(b); });
+      items.forEach(function (a, i) {
+        if (!self._resolveElement(a)) return;
+        var marker, badge, label = (a.kind === "point" ? T.punktLabel : T.elementLabel) + " " + (i + 1);
+        if (a.kind === "element") {
+          marker = el("div", "kommentare-el-mark");
+          badge = el("span", "kommentare-el-badge");
+          badge.textContent = String(i + 1);
+          marker.appendChild(badge);
+        } else {
+          marker = el("div", "kommentare-point-mark");
+          marker.textContent = String(i + 1);
+          badge = marker; // der Pin selbst ist klickbar
+        }
+        marker.dataset.annoId = a.id;
+        marker.dataset.kind = a.kind;
         badge.setAttribute("role", "button");
         badge.setAttribute("tabindex", "0");
-        badge.setAttribute("aria-label", T.elementLabel + " " + (i + 1) + ": " + (a.body || ""));
+        badge.setAttribute("aria-label", label + ": " + (a.body || ""));
         badge.addEventListener("click", function (e) { e.stopPropagation(); self._focusAnno(a.id); });
         badge.addEventListener("keydown", function (e) {
           if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); self._focusAnno(a.id); }
         });
-        box.appendChild(badge);
-        self._overlayEl.appendChild(box);
+        self._overlayEl.appendChild(marker);
       });
       this._positionOverlays();
     },
     _positionOverlays: function () {
       if (!this._overlayEl) return;
       var self = this;
-      this._overlayEl.querySelectorAll(".kommentare-el-mark").forEach(function (box) {
-        var a = self.annos.get(box.dataset.annoId);
+      this._overlayEl.querySelectorAll(".kommentare-el-mark,.kommentare-point-mark").forEach(function (marker) {
+        var a = self.annos.get(marker.dataset.annoId);
         var elx = a ? self._resolveElement(a) : null;
-        if (!elx || !self.container.contains(elx)) { box.style.display = "none"; return; }
+        if (!elx || !self.container.contains(elx)) { marker.style.display = "none"; return; }
         var r = elx.getBoundingClientRect();
-        box.style.display = "";
-        box.style.left = (r.left + window.scrollX) + "px";
-        box.style.top = (r.top + window.scrollY) + "px";
-        box.style.width = r.width + "px";
-        box.style.height = r.height + "px";
+        marker.style.display = "";
+        if (marker.dataset.kind === "point") {
+          marker.style.left = (r.left + (a.rx || 0) * r.width + window.scrollX) + "px";
+          marker.style.top = (r.top + (a.ry || 0) * r.height + window.scrollY) + "px";
+        } else {
+          marker.style.left = (r.left + window.scrollX) + "px";
+          marker.style.top = (r.top + window.scrollY) + "px";
+          marker.style.width = r.width + "px";
+          marker.style.height = r.height + "px";
+        }
       });
     },
     _annoTop: function (a) {
       var node = null;
-      if (a.kind === "element") node = this._resolveElement(a);
+      if (a.kind === "element" || a.kind === "point") node = this._resolveElement(a);
       else node = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(a.id) + '"]');
       if (!node) return Number.POSITIVE_INFINITY;
-      return node.getBoundingClientRect().top + window.scrollY;
+      var r = node.getBoundingClientRect();
+      var top = r.top + window.scrollY;
+      if (a.kind === "point") top += (a.ry || 0) * r.height;
+      return top;
     },
 
     /* ---- Floating-Menü ----------------------------------------------- */
@@ -911,7 +985,7 @@
 
     /* ---- Auswahl -> Kommentar --------------------------------------- */
     _handleSelection: function () {
-      if (this.readOnly || this._elementMode) return;
+      if (this.readOnly || this._mode) return;
       var sel = window.getSelection();
       if (!sel.rangeCount || sel.isCollapsed) return;
       var r = sel.getRangeAt(0);
@@ -957,6 +1031,7 @@
       this._composeEl.classList.add("kommentare-hidden");
       this.pending = null;
       this.pendingEl = null;
+      this.pendingPoint = null;
       this._editing = null;
     },
 
@@ -992,6 +1067,23 @@
         return;
       }
 
+      // Neuer Punkt-Kommentar
+      if (this.pendingPoint) {
+        if (!val) { this._closeCompose(); return; }
+        var pp = this.pendingPoint;
+        var pid = newId();
+        var panno = {
+          id: pid, kind: "point", css: pp.css, tag: pp.tag, fingerprint: pp.fingerprint,
+          rx: pp.rx, ry: pp.ry, body: val, author: this.autor, created: new Date().toISOString()
+        };
+        this.annos.set(pid, panno);
+        this._closeCompose();
+        this._render();
+        if (this.onCreate) this.onCreate(toW3C(panno));
+        this._emitChange();
+        return;
+      }
+
       // Neue Text-Annotation
       if (!val || !this.pending) { this._closeCompose(); return; }
       var p = this.pending;
@@ -1013,9 +1105,10 @@
       if (this.readOnly || !this.annos.has(id)) return;
       this.pending = null;
       this.pendingEl = null;
+      this.pendingPoint = null;
       this._editing = id;
       var a = this.annos.get(id);
-      var target = a && a.kind === "element"
+      var target = a && (a.kind === "element" || a.kind === "point")
         ? this._resolveElement(a)
         : this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
       var rect = target ? target.getBoundingClientRect() : { left: 40, right: 40, top: 80, bottom: 80 };
@@ -1044,6 +1137,9 @@
           note.classList.add("kommentare-note-element");
           quoteEl.textContent = "⬚ " + (a.tag || T.elementLabel) +
             (a.fingerprint ? ": „" + a.fingerprint + "“" : "");
+        } else if (a.kind === "point") {
+          note.classList.add("kommentare-note-point");
+          quoteEl.textContent = "📍 " + T.punktLabel + (a.tag ? " · " + a.tag : "");
         } else {
           quoteEl.textContent = "„" + a.quote + "“";
         }
@@ -1094,7 +1190,7 @@
       if (this._mdBtn) this._mdBtn.disabled = noneMine;
       if (this._emailBtn) this._emailBtn.disabled = noneMine;
 
-      this._renderElementOverlays();
+      this._renderOverlays();
     },
 
     _focusAnno: function (id) {
@@ -1103,15 +1199,15 @@
         .forEach(function (e) { e.classList.remove("is-active"); });
       this._marginEl.querySelectorAll(".kommentare-note.is-active")
         .forEach(function (e) { e.classList.remove("is-active"); });
-      if (this._overlayEl) this._overlayEl.querySelectorAll(".kommentare-el-mark.is-active")
+      if (this._overlayEl) this._overlayEl.querySelectorAll(".kommentare-el-mark.is-active,.kommentare-point-mark.is-active")
         .forEach(function (e) { e.classList.remove("is-active"); });
 
       var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + sel + '"]');
       var note = this._marginEl.querySelector('.kommentare-note[data-anno-id="' + sel + '"]');
       var a = this.annos.get(id);
       if (m) { m.classList.add("is-active"); m.scrollIntoView({ block: "center" }); }
-      if (a && a.kind === "element") {
-        var box = this._overlayEl && this._overlayEl.querySelector('.kommentare-el-mark[data-anno-id="' + sel + '"]');
+      if (a && (a.kind === "element" || a.kind === "point")) {
+        var box = this._overlayEl && this._overlayEl.querySelector('[data-anno-id="' + sel + '"]');
         var elx = this._resolveElement(a);
         if (elx) elx.scrollIntoView({ block: "center" });
         this._positionOverlays();
@@ -1311,6 +1407,15 @@
       var elSel = [{ type: "CssSelector", value: a.css }];
       if (a.fingerprint) elSel.push({ type: "TextQuoteSelector", exact: a.fingerprint });
       base.target = { selector: elSel };
+    } else if (a.kind === "point") {
+      // CssSelector fürs Element + Media-Fragment (Prozent-Position rx,ry)
+      var pSel = [
+        { type: "CssSelector", value: a.css },
+        { type: "FragmentSelector", conformsTo: "http://www.w3.org/TR/media-frags/",
+          value: "xywh=percent:" + (a.rx * 100) + "," + (a.ry * 100) + ",0,0" }
+      ];
+      if (a.fingerprint) pSel.push({ type: "TextQuoteSelector", exact: a.fingerprint });
+      base.target = { selector: pSel };
     } else {
       base.target = { selector: [
         { type: "TextQuoteSelector", exact: a.quote, prefix: a.prefix, suffix: a.suffix },
@@ -1323,6 +1428,7 @@
     try {
       var sel = (o.target && o.target.selector) || [];
       var css = sel.find(function (s) { return s.type === "CssSelector"; });
+      var frag = sel.find(function (s) { return s.type === "FragmentSelector"; });
       var q = sel.find(function (s) { return s.type === "TextQuoteSelector"; }) || {};
       var p = sel.find(function (s) { return s.type === "TextPositionSelector"; }) || {};
       var body = (o.body || []).map(function (b) { return b.value; })
@@ -1331,14 +1437,28 @@
         id: o.id, body: body,
         author: (o.creator && o.creator.name) || "?", created: o.created || ""
       };
-      if (css) {
-        // Element-Annotation: tag aus dem letzten Pfad-Segment ableiten
-        var segs = String(css.value || "").split(">");
+      function tagOf(value) {
+        var segs = String(value || "").split(">");
         var last = segs[segs.length - 1].trim();
         var m = last.match(/^([a-zA-Z][\w-]*)/); // '' bei reinem #id-Selektor
+        return m ? m[1].toLowerCase() : "";
+      }
+      if (css && frag && /xywh=percent:/i.test(frag.value || "")) {
+        // Punkt-Annotation: rx,ry aus dem Media-Fragment
+        var nums = String(frag.value).replace(/^.*percent:/i, "").split(",");
+        common.kind = "point";
+        common.css = css.value || "";
+        common.tag = tagOf(css.value);
+        common.fingerprint = q.exact || "";
+        common.rx = Math.min(1, Math.max(0, (parseFloat(nums[0]) || 0) / 100));
+        common.ry = Math.min(1, Math.max(0, (parseFloat(nums[1]) || 0) / 100));
+        return common;
+      }
+      if (css) {
+        // Element-Annotation
         common.kind = "element";
         common.css = css.value || "";
-        common.tag = m ? m[1].toLowerCase() : "";
+        common.tag = tagOf(css.value);
         common.fingerprint = q.exact || "";
         return common;
       }

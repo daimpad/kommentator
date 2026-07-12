@@ -40,6 +40,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `resizable` | Boolean | ziehbare Randspalte im Auto-Layout (Standard: `true`) |
 | `notesWidth` | String | Startbreite der Randspalte, z. B. `'22rem'` |
 | `elements` | Boolean | beliebige Web-Elemente (Boxen/Bilder) kommentierbar (Standard: `true`) |
+| `points` | Boolean | Punkt an eine bestimmte Stelle „anheften" (Standard: `true`) |
 | `email` | String | Empfänger für „Per E-Mail senden“; leer = Button aus |
 | `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
@@ -142,6 +143,28 @@ Verankerung: zuerst über den container-relativen CSS-Pfad (`:scope > …` bzw.
 bei Scroll/Resize/Layoutänderung neu positioniert (ResizeObserver + gedrosselte
 Listener). Wie bei Text gilt: verlorene Anker verschwinden still, wenn sich die
 Seite zwischen den Runden strukturell ändert.
+
+### Punkt-Kommentare (an eine bestimmte Stelle „anheften")
+
+Mit `points: true` (Standard) erscheint über den Notizen der Knopf **„Punkt
+anheften"**. Ein Klick heftet einen nummerierten **Pin** an genau die Stelle.
+Verankert wird **Element-relativ**, nicht in absoluten Seiten-Pixeln: gespeichert
+werden der CSS-Pfad des angeklickten Elements plus die relative Position darin
+(`rx`, `ry` als Anteil 0–1). Beim Wiederladen wird das Element aufgelöst und der
+Pixel als `rect.left + rx·Breite`, `rect.top + ry·Höhe` neu berechnet — so bleibt
+der Punkt bei Reflow/Responsive am selben Ort des Elements.
+
+W3C-Ablage: `CssSelector` + Media-`FragmentSelector` (`xywh=percent:rx,ry,0,0`):
+
+```json
+"target": { "selector": [
+  { "type": "CssSelector", "value": ":scope > p:nth-of-type(1)" },
+  { "type": "FragmentSelector",
+    "conformsTo": "http://www.w3.org/TR/media-frags/",
+    "value": "xywh=percent:62,50,0,0" },
+  { "type": "TextQuoteSelector", "exact": "…Fingerprint…" }
+]}
+```
 
 ### Export-Hülle (Herkunft der Kommentare)
 

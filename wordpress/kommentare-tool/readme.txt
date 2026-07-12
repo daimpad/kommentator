@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -52,6 +52,7 @@ per HTTP Basic Auth in der .htaccess.
 * `kommentare_email` (string) – E-Mail-Empfänger für „Per E-Mail senden“
   (leer = Button aus). Standard: leer.
 * `kommentare_elements` (bool) – Element-Kommentare (Boxen/Bilder). Standard: an.
+* `kommentare_points` (bool) – Punkt an eine Stelle anheften. Standard: an.
 * `kommentare_init_config` (array) – vollständige init-Optionen; hier lassen
   sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
@@ -65,6 +66,10 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.6.0 =
+* Punkt-Kommentare: an eine bestimmte Stelle einen Pin anheften
+  (Element-relativ verankert; Filter kommentare_points).
 
 = 1.5.0 =
 * Element-Kommentare: beliebige Web-Elemente (Boxen/Container/Bilder) statt nur
