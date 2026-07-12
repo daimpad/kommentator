@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -38,8 +38,11 @@ per HTTP Basic Auth in der .htaccess.
 == Anpassung (Filter) ==
 
 * `kommentare_container_selector` (string) – CSS-Selektor des kommentierbaren
-  Bereichs. Standard: `.entry-content`. Bei manchen Block-Themes:
-  `.wp-block-post-content`.
+  Bereichs. Standard: `body` (ganze Seite inkl. Header/Footer). Auf den Inhalt
+  einschränken: `.entry-content` bzw. `.wp-block-post-content`.
+* `kommentare_notes` (string) – `'floating'` (Notizen schweben, Seite bleibt
+  unverändert – Standard) oder `'inline'` (Notizen als Randspalte, baut die
+  Seite um; nur für einen abgegrenzten Inhaltscontainer sinnvoll).
 * `kommentare_should_load` (bool) – ob geladen wird. Standard: `is_singular()`.
 * `kommentare_autor` (string) – angezeigter Autorname. Standard: Anzeigename des
   eingeloggten Benutzers, sonst „Gast".
@@ -66,6 +69,11 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.7.0 =
+* Ganze Seite kommentierbar: Container-Standard jetzt `body` (Header + Inhalt +
+  Footer), Notizen schweben (notes: 'floating') – die Seite wird nicht umgebaut.
+* Neuer Filter kommentare_notes.
 
 = 1.6.0 =
 * Punkt-Kommentare: an eine bestimmte Stelle einen Pin anheften

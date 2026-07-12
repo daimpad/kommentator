@@ -151,6 +151,10 @@
     // Aktionsleiste als Balken oben ("bar", Standard) oder als Floating-Button
     // unten rechts ("floating"), der ein Menü öffnet.
     this.toolbarMode = options.toolbarMode === "floating" ? "floating" : "bar";
+    // Notizen als in-flow Randspalte ("inline", Standard) oder schwebend im
+    // Floating-Panel ("floating"). Bei "floating" wird die Seite NICHT umgebaut,
+    // sodass sich der ganze Bereich (auch Header/Footer) kommentieren lässt.
+    this.notesMode = options.notes === "floating" ? "floating" : "inline";
     // Randspalte im Auto-Layout per Ziehgriff breiter/schmaler ziehbar
     this.resizable = options.resizable !== false;
     this._notesWidth = options.notesWidth || null; // z. B. "22rem" oder "320px"
@@ -194,7 +198,11 @@
     _buildLayout: function () {
       var T = this.texte;
       var c = this.container;
-      c.classList.add("kommentare-scope", "kommentare-doc");
+      var floatingNotes = this.notesMode === "floating" && !this._toolbarHost && !this._marginHost;
+      // Scope (CSS-Variablen) immer; die Dokument-Typo nur im in-flow Layout,
+      // damit ein großer Container (z. B. <body>) nicht komplett umgestylt wird.
+      c.classList.add("kommentare-scope");
+      if (!floatingNotes) c.classList.add("kommentare-doc");
 
       // Aktionsleiste
       var toolbar = el("div", "kommentare-toolbar kommentare-scope");
@@ -370,12 +378,13 @@
       // Platzierung
       var autoToolbar = !this._toolbarHost;
       var autoMargin = !this._marginHost;
-      var floating = this.toolbarMode === "floating" && autoToolbar;
+      // Floating-Menü, sobald toolbarMode floating ODER Notizen schwebend sind
+      var floating = (this.toolbarMode === "floating" || floatingNotes) && autoToolbar;
       if (floating) titleEl.textContent = T.menuTitel;
 
-      // Ziehgriff zwischen Dokument und Randspalte (nur Auto-Layout)
+      // Ziehgriff zwischen Dokument und Randspalte (nur in-flow Auto-Layout)
       var gutter = null;
-      if (autoMargin && this.resizable) {
+      if (autoMargin && this.resizable && !floatingNotes) {
         gutter = el("div", "kommentare-gutter");
         gutter.setAttribute("role", "separator");
         gutter.setAttribute("aria-orientation", "vertical");
@@ -384,7 +393,12 @@
       }
       this._gutterEl = gutter;
 
-      if (autoToolbar && autoMargin) {
+      if (floatingNotes) {
+        // Kein in-flow Layout: Container bleibt unverändert an Ort und Stelle;
+        // Aktionsleiste UND Notizen wandern ins Floating-Panel (siehe unten).
+        this._wrapper = null;
+        this._bodyEl = null;
+      } else if (autoToolbar && autoMargin) {
         // vollständiges Layout selbst erzeugen und den Container umschließen
         var parent = c.parentNode;
         this._containerHome = { parent: parent, next: c.nextSibling };
@@ -417,17 +431,20 @@
         this._insertedNodes.push(margin);
       }
 
-      // Floating-Modus: Aktionsleiste in ein Menü hinter einem Button unten rechts
+      // Floating-Modus: Aktionsleiste (und ggf. Notizen) hinter einem Button unten rechts
       var fab = null, panel = null;
       if (floating) {
         panel = el("div", "kommentare-panel kommentare-scope kommentare-hidden");
         panel.setAttribute("role", "menu");
         panel.setAttribute("aria-label", T.menuTitel);
+        panel.setAttribute("data-kommentare-ui", "1");
         panel.appendChild(toolbar);
+        if (floatingNotes) { panel.classList.add("kommentare-panel-notes"); panel.appendChild(margin); }
         fab = el("button", "kommentare-fab kommentare-scope");
         fab.type = "button";
         fab.setAttribute("aria-label", T.menuAria);
         fab.setAttribute("aria-expanded", "false");
+        fab.setAttribute("data-kommentare-ui", "1");
         fab.textContent = "☰";
         document.body.appendChild(panel);
         document.body.appendChild(fab);
@@ -436,16 +453,20 @@
       this._fabEl = fab;
       this._panelEl = panel;
 
+      compose.setAttribute("data-kommentare-ui", "1");
+      if (help) help.setAttribute("data-kommentare-ui", "1");
       document.body.appendChild(compose);
       document.body.appendChild(fileIn);
       this._insertedNodes.push(compose, fileIn);
       if (help) { document.body.appendChild(help); this._insertedNodes.push(help); }
 
-      // Overlay-Ebene für Element-Markierungen + Hover-Umriss (Seiten-Koordinaten)
+      // Overlay-Ebene für Element-/Punkt-Markierungen + Hover (Seiten-Koordinaten)
       var overlay = null, hover = null;
-      if (this.elements) {
+      if (this.elements || this.points) {
         overlay = el("div", "kommentare-overlay kommentare-scope");
+        overlay.setAttribute("data-kommentare-ui", "1");
         hover = el("div", "kommentare-hover kommentare-scope kommentare-hidden");
+        hover.setAttribute("data-kommentare-ui", "1");
         document.body.appendChild(overlay);
         document.body.appendChild(hover);
         this._insertedNodes.push(overlay, hover);
@@ -614,8 +635,8 @@
       if (!t || t.nodeType !== 1) return null;
       if (t === this.container) return null;
       if (!this.container.contains(t)) return null;
-      if (this._overlayEl && this._overlayEl.contains(t)) return null;
-      if (this._hoverEl && (t === this._hoverEl || this._hoverEl.contains(t))) return null;
+      // werkzeugeigene UI (Panel/Overlay/Hover/…) nie als Ziel wählen
+      if (t.closest && t.closest("[data-kommentare-ui]")) return null;
       return t;
     },
     _setMode: function (mode) {
@@ -884,8 +905,22 @@
 
     /* ---- Textoffsets im Container ----------------------------------- */
     _textNodes: function (root) {
-      var out = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n;
-      while ((n = w.nextNode())) out.push(n);
+      var out = [];
+      var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          var p = node.parentNode;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          var tag = p.nodeName;
+          // Skript-/Stil-Text und werkzeugeigene UI ignorieren (wichtig, wenn
+          // der Container die ganze Seite/<body> umfasst).
+          if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT" || tag === "TEMPLATE") {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (p.closest && p.closest("[data-kommentare-ui]")) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      var n; while ((n = w.nextNode())) out.push(n);
       return out;
     },
     _globalOffset: function (node, off) {
