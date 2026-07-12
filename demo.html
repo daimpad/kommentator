@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kommentare — Einbindungsbeispiel</title>
+
+<!-- (1) Stylesheet im <head> einbinden -->
+<link rel="stylesheet" href="kommentare.css">
+
+<!--
+  Diese Seite ist zugleich Kurz-Dokumentation. Nur Seiten-eigene Stile
+  stehen hier inline; das Kommentar-Werkzeug selbst kommt vollständig aus
+  kommentare.css + kommentare.js. Außer dem init-Aufruf ganz unten gibt es
+  kein weiteres Skript.
+-->
+<style>
+  :root{ --page:#fbfbf9; --tint:#14140f; --faint:#55554d; --rule:#d9d9cf;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style",Palatino,Georgia,serif; }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--page);color:var(--tint);font-family:var(--serif);line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto;padding:2rem 1.1rem 6rem}
+  .doc{font-size:1.075rem}
+  .doc h1{font-size:1.6rem;line-height:1.2;margin:0 0 1.2rem}
+  .doc h2{font-size:1.15rem;margin:2rem 0 .8rem;font-family:var(--mono);
+    text-transform:uppercase;letter-spacing:.03em}
+  .doc p{margin:0 0 1.15rem}
+  .doc code{font-family:var(--mono);font-size:.85em;background:#efeee6;padding:.05em .3em}
+  .hint{font-family:var(--mono);font-size:.74rem;color:var(--faint);
+    border-left:2px solid var(--rule);padding-left:.7rem;margin-bottom:1.6rem}
+  pre{font-family:var(--mono);font-size:.78rem;line-height:1.5;background:#14140f;color:#f4f3ea;
+    padding:1rem 1.1rem;overflow-x:auto;margin:0 0 1.5rem}
+  .setup{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;
+    font-family:var(--mono);font-size:.78rem;color:var(--faint);margin-bottom:1.6rem}
+  .setup input{font-family:var(--serif);font-size:1rem;padding:.4rem .55rem;
+    border:1.3px solid var(--tint);background:#fff}
+  .setup button{font-family:var(--mono);font-size:.76rem;background:var(--page);
+    color:var(--tint);border:1.3px solid var(--tint);padding:.34rem .7rem;cursor:pointer}
+  .setup button:hover{background:var(--tint);color:var(--page)}
+  .setup button:focus-visible,.setup input:focus-visible{outline:2px solid #ffcf1a;outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <article class="doc">
+    <h1>Kommentare — einbindbares Werkzeug</h1>
+
+    <p class="hint">Markiere im Text unten eine Stelle mit der Maus, um sie zu
+    kommentieren. Klick auf eine Markierung oder eine Notiz verbindet beide.
+    Über die Aktionsleiste kannst du eigene Kommentare herunterladen und die
+    exportierten Dateien anderer wieder einlesen.</p>
+
+    <!--
+      Kleine Setup-Zeile NUR für diese Demo: Autor:in wählen bzw. Datei-Import
+      antriggern. In einer echten Einbindung entfällt das — der Name wird
+      direkt an Kommentare.init({ autor: '…' }) übergeben.
+    -->
+    <div class="setup">
+      <label for="autor">Autor:in:</label>
+      <input id="autor" type="text" value="Gast" autocomplete="name">
+      <button id="apply" type="button">Übernehmen</button>
+    </div>
+
+    <h2>So bindest du es ein</h2>
+    <pre>&lt;!-- 1. Stylesheet in den &lt;head&gt; --&gt;
+&lt;link rel="stylesheet" href="kommentare.css"&gt;
+
+&lt;!-- 2. Zu kommentierenden Bereich auszeichnen --&gt;
+&lt;div data-kommentierbar&gt;
+  … dein Fließtext …
+&lt;/div&gt;
+
+&lt;!-- 3. Skript vor &lt;/body&gt; laden und starten --&gt;
+&lt;script src="kommentare.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  Kommentare.init({
+    container: '[data-kommentierbar]',
+    autor: 'Vorname Nachname'
+    // optional: margin, toolbar (Mount-Selektoren),
+    //           readOnly, onCreate(anno), onDelete(id)
+  });
+&lt;/script&gt;</pre>
+
+    <!--
+      ============================================================
+        SICHERHEIT / ZUGRIFFSSCHUTZ
+        Das Namensfeld dient nur der ZUORDNUNG von Kommentaren zu
+        einer Person – es ist KEIN Zugriffsschutz. Echten Schutz
+        („Name + Passwort") realisiert der Betreiber auf Server-
+        Ebene, z. B. per HTTP Basic Auth in einer .htaccess:
+
+            AuthType Basic
+            AuthName "Kommentierung"
+            AuthUserFile /pfad/zu/.htpasswd
+            Require valid-user
+
+        GETEILTE SICHTBARKEIT ist bewusst asynchron und ohne
+        Backend: Nutzer:innen exportieren ihre Kommentare, der
+        Betreiber sammelt die JSON-Dateien ein und liest sie über
+        „Kommentare laden" (instanz.import) gemeinsam wieder ein.
+        Es gibt keinen Server, kein localStorage – der Zustand
+        bleibt im Speicher der Sitzung.
+      ============================================================
+    -->
+
+    <h2>Beispieltext</h2>
+    <!-- ================= INHALT HIER ERSETZEN ================= -->
+    <div data-kommentierbar id="content">
+      <h1>Beispieltext zum Ersetzen</h1>
+      <p>Dies ist Platzhaltertext. Ersetze den Inhalt dieses Bereichs
+      (<code>&lt;div data-kommentierbar&gt;</code>) durch das Dokument, das
+      kommentiert werden soll. Die Markierungs- und Kommentarfunktion arbeitet
+      auf jedem Fließtext, auch über mehrere Absätze und verschachtelte
+      Elemente hinweg.</p>
+      <p>Jede Markierung speichert den exakten Wortlaut, etwas Kontext davor und
+      danach sowie die Zeichenposition im Text. So lassen sich Kommentare beim
+      Wiedereinlesen genau an derselben Stelle verankern — vorausgesetzt, der
+      Ausgangstext bleibt zwischen den Runden unverändert.</p>
+      <p>Für geteilte Sichtbarkeit ohne Server sammelst du die exportierten
+      Dateien der Beteiligten ein und liest sie über „Kommentare laden“
+      gemeinsam ein. Alle Notizen erscheinen dann nebeneinander in der
+      Randspalte, mit Namen der jeweiligen Autor:innen.</p>
+    </div>
+    <!-- ================= ENDE INHALT ================= -->
+  </article>
+</div>
+
+<!-- (3) Skript laden … -->
+<script src="kommentare.js"></script>
+<!-- … und starten. Dies ist das EINZIGE Seiten-Skript neben dem Setup-Helfer. -->
+<script>
+  // Werkzeug initialisieren. Randspalte und Aktionsleiste werden automatisch
+  // erzeugt, weil keine margin-/toolbar-Mounts übergeben wurden.
+  var instanz = Kommentare.init({
+    container: '[data-kommentierbar]',
+    autor: document.getElementById('autor').value.trim() || 'Gast'
+  });
+
+  // --- reiner Demo-Komfort: Autor:in wechseln ohne Neuladen ---
+  // (In einer echten Einbindung nicht nötig – dort steht der Name fest.)
+  document.getElementById('apply').addEventListener('click', function () {
+    var name = document.getElementById('autor').value.trim() || 'Gast';
+    var annos = instanz.getAnnotations();          // bestehende Notizen sichern
+    instanz.destroy();                             // DOM-Ausgangszustand herstellen
+    instanz = Kommentare.init({ container: '[data-kommentierbar]', autor: name });
+    instanz.import(annos);                          // Notizen wieder einlesen
+  });
+</script>
+</body>
+</html>
