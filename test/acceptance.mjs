@@ -297,6 +297,34 @@ check("Modal: erscheint beim Laden", gateBefore.visible === true);
 check("Modal: Werkzeug startet erst nach Übernehmen", gateBefore.noInstanz === true);
 check("Modal: verschwindet nach Übernehmen", gateAfter.hidden === true && gateAfter.hasInstanz === true);
 
+// --- Element-Kommentare (beliebige Web-Elemente statt nur Text) ---
+await load();
+const elToggle = await page.evaluate(() =>
+  [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")].some((b) => b.textContent === "Element kommentieren"));
+check("Element: Umschalt-Button vorhanden", elToggle === true);
+
+// erstes <p> im Container per API auswählen und kommentieren
+await page.evaluate(() => window.instanz._selectElement(document.querySelector("#content p")));
+await page.fill(".kommentare-compose textarea", "Diese Box prüfen.");
+await page.evaluate(() => {
+  const b = document.querySelectorAll(".kommentare-compose .kommentare-btn");
+  b[b.length - 1].click();
+});
+check("Element: Overlay-Markierung erzeugt", (await page.locator(".kommentare-el-mark").count()) === 1);
+check("Element: Element-Notiz in Randspalte", (await page.locator(".kommentare-note-element").count()) === 1);
+
+const elAnns = await page.evaluate(() => instanz.getAnnotations());
+check("Element: Export enthält CssSelector",
+  elAnns.some((a) => a.target.selector.some((s) => s.type === "CssSelector")));
+
+// Reload + Import: Element-Markierung wird über den CSS-Selektor wieder verankert
+const elExport = await page.evaluate(() => instanz.export());
+await load();
+await page.evaluate((j) => instanz.import(j), elExport);
+check("Element: nach Reload+Import wiederhergestellt", (await page.locator(".kommentare-el-mark").count()) === 1);
+const reText = (await page.locator(".kommentare-note-element .kommentare-note-body").first().textContent()).trim();
+check("Element: Kommentartext wiederhergestellt", reText === "Diese Box prüfen.");
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");

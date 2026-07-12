@@ -75,7 +75,11 @@
     hilfeHinweis: "Das Namensfeld ordnet Kommentare nur einer Person zu — es ist kein Zugriffsschutz. Beim Export werden die Seiten-URL und der Seitentitel mitgespeichert, damit erkennbar bleibt, zu welcher Seite die Kommentare gehören.",
     menuAria:           "Kommentar-Menü öffnen",
     menuTitel:          "Kommentator",
-    groesseAria:        "Randspalte breiter oder schmaler ziehen"
+    groesseAria:        "Randspalte breiter oder schmaler ziehen",
+    elementBtn:         "Element kommentieren",
+    elementBtnAktiv:    "Element-Auswahl beenden",
+    elementAria:        "Element-Auswahl umschalten",
+    elementLabel:       "Element"
   };
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
@@ -149,6 +153,10 @@
     // E-Mail-Empfänger (leer = kein „Per E-Mail senden“-Knopf) + optionaler Betreff
     this.email = options.email || "";
     this.emailSubject = options.emailSubject || "";
+    // Beliebige Web-Elemente (Boxen/Container/Bilder) kommentierbar machen
+    this.elements = options.elements !== false;
+    this._elementMode = false;      // aktiver Element-Auswahl-Modus
+    this.pendingEl = null;          // {el, css, tag, fingerprint} für neue Element-Anno
 
     // UI-Texte: Standard + per-Instanz-Overrides (i18n), ohne globalen Zustand zu berühren
     this.texte = {};
@@ -208,6 +216,17 @@
         themeBtn.type = "button";
         actions.appendChild(themeBtn);
       }
+      // Element-Auswahl umschalten (opt-in via elements, Standard an)
+      var elementBtn = null;
+      if (this.elements && !this.readOnly) {
+        elementBtn = el("button", "kommentare-btn kommentare-el-toggle");
+        elementBtn.type = "button";
+        elementBtn.textContent = T.elementBtn;
+        elementBtn.setAttribute("aria-pressed", "false");
+        elementBtn.setAttribute("aria-label", T.elementAria);
+        actions.appendChild(elementBtn);
+      }
+      this._elementBtn = elementBtn;
 
       var importBtn = el("button", "kommentare-btn");
       importBtn.type = "button";
@@ -403,11 +422,25 @@
       this._insertedNodes.push(compose, fileIn);
       if (help) { document.body.appendChild(help); this._insertedNodes.push(help); }
 
+      // Overlay-Ebene für Element-Markierungen + Hover-Umriss (Seiten-Koordinaten)
+      var overlay = null, hover = null;
+      if (this.elements) {
+        overlay = el("div", "kommentare-overlay kommentare-scope");
+        hover = el("div", "kommentare-hover kommentare-scope kommentare-hidden");
+        document.body.appendChild(overlay);
+        document.body.appendChild(hover);
+        this._insertedNodes.push(overlay, hover);
+      }
+      this._overlayEl = overlay;
+      this._hoverEl = hover;
+
       // Elemente sammeln, die die Theme-Klasse tragen, und Anfangs-Theme setzen
       this._scopeEls = [this.container, toolbar, margin, compose];
       if (help) this._scopeEls.push(help);
       if (fab) this._scopeEls.push(fab);
       if (panel) this._scopeEls.push(panel);
+      if (overlay) this._scopeEls.push(overlay);
+      if (hover) this._scopeEls.push(hover);
       if (this._wrapper) this._scopeEls.push(this._wrapper);
       this._applyTheme(this._theme);
     },
@@ -505,6 +538,181 @@
         this._gutterEl.addEventListener("pointerdown", this._onGutterDown);
         this._gutterEl.addEventListener("keydown", this._onGutterKey);
       }
+
+      // Element-Kommentare
+      if (this.elements) {
+        if (this._elementBtn) {
+          this._onElToggle = function () { self._toggleElementMode(); };
+          this._elementBtn.addEventListener("click", this._onElToggle);
+        }
+        // Hover-Umriss folgt dem Element unter dem Zeiger (nur im Element-Modus)
+        this._onElMove = function (e) {
+          if (!self._elementMode) return;
+          var t = self._elementTargetFrom(e.target);
+          if (t) self._showHover(t); else self._hideHover();
+        };
+        // Klick in Capture-Phase: Element wählen und Host-Handler/Links abfangen
+        this._onElClick = function (e) {
+          if (!self._elementMode) return;
+          var t = self._elementTargetFrom(e.target);
+          if (!t) return;
+          e.preventDefault(); e.stopPropagation();
+          self._selectElement(t);
+        };
+        this._onElKey = function (e) { if (e.key === "Escape" && self._elementMode) self._toggleElementMode(false); };
+        this.container.addEventListener("mousemove", this._onElMove);
+        this.container.addEventListener("click", this._onElClick, true);
+        document.addEventListener("keydown", this._onElKey);
+
+        // Overlay-Neuposition bei Scroll/Resize/Layoutänderung (rAF-gedrosselt)
+        this._reposScheduled = false;
+        this._onRepos = function () {
+          if (self._reposScheduled) return;
+          self._reposScheduled = true;
+          (global.requestAnimationFrame || function (f) { global.setTimeout(f, 16); })(function () {
+            self._reposScheduled = false;
+            self._positionOverlays();
+          });
+        };
+        global.addEventListener("scroll", this._onRepos, true);
+        global.addEventListener("resize", this._onRepos);
+        if (global.ResizeObserver) {
+          this._ro = new global.ResizeObserver(this._onRepos);
+          this._ro.observe(this.container);
+        }
+      }
+    },
+
+    /* ---- Element-Kommentare ------------------------------------------ */
+    _elementTargetFrom: function (t) {
+      if (!t || t.nodeType !== 1) return null;
+      if (t === this.container) return null;
+      if (!this.container.contains(t)) return null;
+      if (this._overlayEl && this._overlayEl.contains(t)) return null;
+      if (this._hoverEl && (t === this._hoverEl || this._hoverEl.contains(t))) return null;
+      return t;
+    },
+    _toggleElementMode: function (force) {
+      var on = typeof force === "boolean" ? force : !this._elementMode;
+      this._elementMode = on;
+      this.container.classList.toggle("kommentare-picking", on);
+      if (this._elementBtn) {
+        this._elementBtn.classList.toggle("is-active", on);
+        this._elementBtn.setAttribute("aria-pressed", on ? "true" : "false");
+        this._elementBtn.textContent = on ? this.texte.elementBtnAktiv : this.texte.elementBtn;
+      }
+      if (!on) this._hideHover();
+      else if (this._panelEl) this._toggleMenu(false); // Menü schließen, Sicht frei
+    },
+    _showHover: function (elm) {
+      if (!this._hoverEl) return;
+      var r = elm.getBoundingClientRect();
+      var h = this._hoverEl;
+      h.classList.remove("kommentare-hidden");
+      h.style.left = (r.left + window.scrollX) + "px";
+      h.style.top = (r.top + window.scrollY) + "px";
+      h.style.width = r.width + "px";
+      h.style.height = r.height + "px";
+    },
+    _hideHover: function () {
+      if (this._hoverEl) this._hoverEl.classList.add("kommentare-hidden");
+    },
+    _fingerprint: function (elm) {
+      return (elm.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    },
+    // Container-relativer, robuster CSS-Pfad (id als Abkürzung, sonst nth-of-type).
+    _cssPathOf: function (elm) {
+      var parts = [], node = elm, usedId = false;
+      while (node && node !== this.container && node.nodeType === 1) {
+        if (node.id) { parts.unshift("#" + cssEscape(node.id)); usedId = true; break; }
+        var tag = node.tagName.toLowerCase();
+        var parent = node.parentNode, idx = 0, k = 0, i;
+        if (parent) {
+          for (i = 0; i < parent.children.length; i++) {
+            if (parent.children[i].tagName === node.tagName) { k++; if (parent.children[i] === node) idx = k; }
+          }
+          parts.unshift(tag + ":nth-of-type(" + idx + ")");
+        } else { parts.unshift(tag); }
+        node = node.parentNode;
+      }
+      if (usedId) return parts.join(" > ");
+      return ":scope > " + parts.join(" > ");
+    },
+    _resolveElement: function (a) {
+      var elx = null;
+      try { elx = this.container.querySelector(a.css); } catch (_) {}
+      if (elx && this.container.contains(elx)) return elx;
+      // Fallback: unter allen gleichartigen Elementen per Fingerprint suchen
+      if (a.tag) {
+        var cands = this.container.querySelectorAll(a.tag), best = null, i;
+        for (i = 0; i < cands.length; i++) {
+          if (this._fingerprint(cands[i]) === a.fingerprint) { best = cands[i]; break; }
+        }
+        if (!best && a.fingerprint) {
+          for (i = 0; i < cands.length; i++) {
+            if (this._fingerprint(cands[i]).indexOf(a.fingerprint.slice(0, 20)) === 0) { best = cands[i]; break; }
+          }
+        }
+        if (best) return best;
+      }
+      return null;
+    },
+    _selectElement: function (elm) {
+      this.pending = null;
+      this._editing = null;
+      this.pendingEl = {
+        el: elm, css: this._cssPathOf(elm),
+        tag: elm.tagName.toLowerCase(), fingerprint: this._fingerprint(elm)
+      };
+      this._toggleElementMode(false);
+      this._openCompose(elm.getBoundingClientRect());
+    },
+    _renderElementOverlays: function () {
+      if (!this._overlayEl) return;
+      var self = this, T = this.texte;
+      this._overlayEl.innerHTML = "";
+      var els = Array.from(this.annos.values()).filter(function (a) { return a.kind === "element"; });
+      els.sort(function (a, b) { return self._annoTop(a) - self._annoTop(b); });
+      els.forEach(function (a, i) {
+        var elx = self._resolveElement(a);
+        if (!elx) return;
+        var box = el("div", "kommentare-el-mark");
+        box.dataset.annoId = a.id;
+        var badge = el("span", "kommentare-el-badge");
+        badge.textContent = String(i + 1);
+        badge.setAttribute("role", "button");
+        badge.setAttribute("tabindex", "0");
+        badge.setAttribute("aria-label", T.elementLabel + " " + (i + 1) + ": " + (a.body || ""));
+        badge.addEventListener("click", function (e) { e.stopPropagation(); self._focusAnno(a.id); });
+        badge.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); self._focusAnno(a.id); }
+        });
+        box.appendChild(badge);
+        self._overlayEl.appendChild(box);
+      });
+      this._positionOverlays();
+    },
+    _positionOverlays: function () {
+      if (!this._overlayEl) return;
+      var self = this;
+      this._overlayEl.querySelectorAll(".kommentare-el-mark").forEach(function (box) {
+        var a = self.annos.get(box.dataset.annoId);
+        var elx = a ? self._resolveElement(a) : null;
+        if (!elx || !self.container.contains(elx)) { box.style.display = "none"; return; }
+        var r = elx.getBoundingClientRect();
+        box.style.display = "";
+        box.style.left = (r.left + window.scrollX) + "px";
+        box.style.top = (r.top + window.scrollY) + "px";
+        box.style.width = r.width + "px";
+        box.style.height = r.height + "px";
+      });
+    },
+    _annoTop: function (a) {
+      var node = null;
+      if (a.kind === "element") node = this._resolveElement(a);
+      else node = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(a.id) + '"]');
+      if (!node) return Number.POSITIVE_INFINITY;
+      return node.getBoundingClientRect().top + window.scrollY;
     },
 
     /* ---- Floating-Menü ----------------------------------------------- */
@@ -700,7 +908,7 @@
 
     /* ---- Auswahl -> Kommentar --------------------------------------- */
     _handleSelection: function () {
-      if (this.readOnly) return;
+      if (this.readOnly || this._elementMode) return;
       var sel = window.getSelection();
       if (!sel.rangeCount || sel.isCollapsed) return;
       var r = sel.getRangeAt(0);
@@ -745,6 +953,7 @@
     _closeCompose: function () {
       this._composeEl.classList.add("kommentare-hidden");
       this.pending = null;
+      this.pendingEl = null;
       this._editing = null;
     },
 
@@ -763,12 +972,29 @@
         return;
       }
 
-      // Neue Annotation
+      // Neuer Element-Kommentar
+      if (this.pendingEl) {
+        if (!val) { this._closeCompose(); return; }
+        var pe = this.pendingEl;
+        var eid = newId();
+        var eanno = {
+          id: eid, kind: "element", css: pe.css, tag: pe.tag, fingerprint: pe.fingerprint,
+          body: val, author: this.autor, created: new Date().toISOString()
+        };
+        this.annos.set(eid, eanno);
+        this._closeCompose();
+        this._render();
+        if (this.onCreate) this.onCreate(toW3C(eanno));
+        this._emitChange();
+        return;
+      }
+
+      // Neue Text-Annotation
       if (!val || !this.pending) { this._closeCompose(); return; }
       var p = this.pending;
       var id = newId();
       var anno = {
-        id: id, quote: p.quote, prefix: p.prefix, suffix: p.suffix,
+        id: id, kind: "text", quote: p.quote, prefix: p.prefix, suffix: p.suffix,
         pos: { start: p.start, end: p.end }, body: val, author: this.autor,
         created: new Date().toISOString()
       };
@@ -783,9 +1009,13 @@
     _startEdit: function (id) {
       if (this.readOnly || !this.annos.has(id)) return;
       this.pending = null;
+      this.pendingEl = null;
       this._editing = id;
-      var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
-      var rect = m ? m.getBoundingClientRect() : { left: 40, right: 40, top: 80, bottom: 80 };
+      var a = this.annos.get(id);
+      var target = a && a.kind === "element"
+        ? this._resolveElement(a)
+        : this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
+      var rect = target ? target.getBoundingClientRect() : { left: 40, right: 40, top: 80, bottom: 80 };
       this._openCompose(rect);
     },
 
@@ -794,8 +1024,9 @@
       var self = this, T = this.texte;
       var notes = this._notesEl;
       notes.innerHTML = "";
+      // nach visueller Position (oben->unten) sortieren; mischt Text- und Element-Annos
       var list = Array.from(this.annos.values()).sort(function (a, b) {
-        return a.pos.start - b.pos.start;
+        return self._annoTop(a) - self._annoTop(b);
       });
       this._emptyEl.classList.toggle("kommentare-hidden", list.length > 0);
 
@@ -806,7 +1037,13 @@
         note.setAttribute("tabindex", "0");
         var mine = a.author === self.autor;
         var quoteEl = el("blockquote");
-        quoteEl.textContent = "„" + a.quote + "“";
+        if (a.kind === "element") {
+          note.classList.add("kommentare-note-element");
+          quoteEl.textContent = "⬚ " + (a.tag || T.elementLabel) +
+            (a.fingerprint ? ": „" + a.fingerprint + "“" : "");
+        } else {
+          quoteEl.textContent = "„" + a.quote + "“";
+        }
         var bodyEl = el("div", "kommentare-note-body");
         bodyEl.textContent = a.body;
         var metaEl = el("div", "kommentare-note-meta");
@@ -853,6 +1090,8 @@
       this._exportBtn.disabled = noneMine;
       if (this._mdBtn) this._mdBtn.disabled = noneMine;
       if (this._emailBtn) this._emailBtn.disabled = noneMine;
+
+      this._renderElementOverlays();
     },
 
     _focusAnno: function (id) {
@@ -861,9 +1100,20 @@
         .forEach(function (e) { e.classList.remove("is-active"); });
       this._marginEl.querySelectorAll(".kommentare-note.is-active")
         .forEach(function (e) { e.classList.remove("is-active"); });
+      if (this._overlayEl) this._overlayEl.querySelectorAll(".kommentare-el-mark.is-active")
+        .forEach(function (e) { e.classList.remove("is-active"); });
+
       var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + sel + '"]');
       var note = this._marginEl.querySelector('.kommentare-note[data-anno-id="' + sel + '"]');
+      var a = this.annos.get(id);
       if (m) { m.classList.add("is-active"); m.scrollIntoView({ block: "center" }); }
+      if (a && a.kind === "element") {
+        var box = this._overlayEl && this._overlayEl.querySelector('.kommentare-el-mark[data-anno-id="' + sel + '"]');
+        var elx = this._resolveElement(a);
+        if (elx) elx.scrollIntoView({ block: "center" });
+        this._positionOverlays();
+        if (box) box.classList.add("is-active");
+      }
       if (note) note.classList.add("is-active");
     },
 
@@ -1013,11 +1263,20 @@
       this.container.removeEventListener("click", this._onContainerClick);
       this.container.removeEventListener("keydown", this._onContainerKey);
       if (this._onDocClick) document.removeEventListener("click", this._onDocClick);
+      // Element-Kommentare: Listener/Beobachter lösen
+      if (this._onElMove) this.container.removeEventListener("mousemove", this._onElMove);
+      if (this._onElClick) this.container.removeEventListener("click", this._onElClick, true);
+      if (this._onElKey) document.removeEventListener("keydown", this._onElKey);
+      if (this._onRepos) {
+        global.removeEventListener("scroll", this._onRepos, true);
+        global.removeEventListener("resize", this._onRepos);
+      }
+      if (this._ro) { this._ro.disconnect(); this._ro = null; }
 
       // Markierungen entfernen, Ausgangs-DOM wiederherstellen
       this._unwrapMarks();
       this.container.classList.remove("kommentare-scope", "kommentare-doc",
-        "kommentare-dark", "kommentare-light");
+        "kommentare-dark", "kommentare-light", "kommentare-picking");
 
       if (this._wrapper) {
         // Container an ursprüngliche Position zurücksetzen
@@ -1039,28 +1298,51 @@
   /* W3C-Konvertierung (Modul-Ebene, zustandslos)                          */
   /* -------------------------------------------------------------------- */
   function toW3C(a) {
-    return {
+    var base = {
       id: a.id, type: "Annotation", created: a.created,
       creator: { name: a.author },
-      body: [{ type: "TextualBody", purpose: "commenting", value: a.body }],
-      target: { selector: [
+      body: [{ type: "TextualBody", purpose: "commenting", value: a.body }]
+    };
+    if (a.kind === "element") {
+      // W3C CssSelector fürs Element; Fingerprint als TextQuoteSelector-Refinement
+      var elSel = [{ type: "CssSelector", value: a.css }];
+      if (a.fingerprint) elSel.push({ type: "TextQuoteSelector", exact: a.fingerprint });
+      base.target = { selector: elSel };
+    } else {
+      base.target = { selector: [
         { type: "TextQuoteSelector", exact: a.quote, prefix: a.prefix, suffix: a.suffix },
         { type: "TextPositionSelector", start: a.pos.start, end: a.pos.end }
-      ] }
-    };
+      ] };
+    }
+    return base;
   }
   function fromW3C(o) {
     try {
       var sel = (o.target && o.target.selector) || [];
+      var css = sel.find(function (s) { return s.type === "CssSelector"; });
       var q = sel.find(function (s) { return s.type === "TextQuoteSelector"; }) || {};
       var p = sel.find(function (s) { return s.type === "TextPositionSelector"; }) || {};
       var body = (o.body || []).map(function (b) { return b.value; })
         .filter(Boolean).join("\n");
-      return {
-        id: o.id, quote: q.exact || "", prefix: q.prefix || "", suffix: q.suffix || "",
-        pos: { start: p.start || 0, end: p.end || 0 }, body: body,
+      var common = {
+        id: o.id, body: body,
         author: (o.creator && o.creator.name) || "?", created: o.created || ""
       };
+      if (css) {
+        // Element-Annotation: tag aus dem letzten Pfad-Segment ableiten
+        var segs = String(css.value || "").split(">");
+        var last = segs[segs.length - 1].trim();
+        var m = last.match(/^([a-zA-Z][\w-]*)/); // '' bei reinem #id-Selektor
+        common.kind = "element";
+        common.css = css.value || "";
+        common.tag = m ? m[1].toLowerCase() : "";
+        common.fingerprint = q.exact || "";
+        return common;
+      }
+      common.kind = "text";
+      common.quote = q.exact || ""; common.prefix = q.prefix || ""; common.suffix = q.suffix || "";
+      common.pos = { start: p.start || 0, end: p.end || 0 };
+      return common;
     } catch (_) { return null; }
   }
 

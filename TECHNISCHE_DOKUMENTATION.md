@@ -39,6 +39,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `toolbarMode` | String | `'bar'` (Balken oben, Standard) oder `'floating'` (Button unten rechts, der ein Menü öffnet) |
 | `resizable` | Boolean | ziehbare Randspalte im Auto-Layout (Standard: `true`) |
 | `notesWidth` | String | Startbreite der Randspalte, z. B. `'22rem'` |
+| `elements` | Boolean | beliebige Web-Elemente (Boxen/Bilder) kommentierbar (Standard: `true`) |
 | `email` | String | Empfänger für „Per E-Mail senden“; leer = Button aus |
 | `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
@@ -113,6 +114,34 @@ Jede Annotation ist nah an **W3C Web Annotation**:
 Markierungen funktionieren **knotenübergreifend** (über mehrere Absätze und
 verschachtelte Elemente hinweg). Voraussetzung für exakte Wiederverankerung: der
 Ausgangstext bleibt zwischen den Runden unverändert.
+
+### Element-Kommentare (Boxen/Bilder statt Text)
+
+Mit `elements: true` (Standard) erscheint im Menü der Knopf **„Element
+kommentieren"**. Im Element-Modus folgt ein Umriss dem Element unter dem Zeiger;
+ein Klick wählt es (Host-Links/Buttons werden dabei abgefangen) und öffnet
+dasselbe Kommentar-Popover. Gesetzte Element-Kommentare erscheinen als farbige
+Rahmen mit nummeriertem Badge (eigene Overlay-Ebene, kein `<mark>`).
+
+Datenmodell für Element-Annotationen (W3C `CssSelector`):
+
+```json
+{
+  "id": "…", "type": "Annotation", "creator": { "name": "…" },
+  "body": [{ "type": "TextualBody", "purpose": "commenting", "value": "…" }],
+  "target": { "selector": [
+    { "type": "CssSelector", "value": ":scope > div:nth-of-type(2) > p:nth-of-type(1)" },
+    { "type": "TextQuoteSelector", "exact": "…Textausschnitt als Fallback…" }
+  ]}
+}
+```
+
+Verankerung: zuerst über den container-relativen CSS-Pfad (`:scope > …` bzw.
+`#id > …`); scheitert das (DOM umgebaut), Fallback über den Text-Fingerprint
+(`TextQuoteSelector.exact`) unter gleichartigen Elementen. Die Overlays werden
+bei Scroll/Resize/Layoutänderung neu positioniert (ResizeObserver + gedrosselte
+Listener). Wie bei Text gilt: verlorene Anker verschwinden still, wenn sich die
+Seite zwischen den Runden strukturell ändert.
 
 ### Export-Hülle (Herkunft der Kommentare)
 
