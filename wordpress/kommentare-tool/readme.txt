@@ -3,8 +3,9 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.0.0
-License: siehe Repository
+Stable tag: 1.1.0
+License: MIT
+License URI: https://opensource.org/licenses/MIT
 
 Textstellen in Beiträgen/Seiten markieren, kommentieren, als JSON exportieren
 und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
@@ -56,6 +57,10 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.1.0 =
+* Modernisiertes Design (weiche Flächen, Akzentfarbe, Dark-Mode, Pill-Buttons).
+* MIT-Lizenz.
 
 = 1.0.0 =
 * Erste Version: Einbindung der statischen Assets, Filter zur Konfiguration.

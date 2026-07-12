@@ -147,5 +147,4 @@ Basic Auth (`.htaccess`) oder — in WordPress — per Login/Rollen.
 
 ## Lizenz
 
-Noch nicht festgelegt. Bitte vor Weitergabe eine Lizenz wählen (z. B. MIT) und
-hier sowie in `package.json` eintragen.
+[MIT](LICENSE) © 2026 Damian Paderta.
