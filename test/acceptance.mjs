@@ -327,6 +327,39 @@ check("Element: nach Reload+Import wiederhergestellt", (await page.locator(".kom
 const reText = (await page.locator(".kommentare-note-element .kommentare-note-body").first().textContent()).trim();
 check("Element: Kommentartext wiederhergestellt", reText === "Diese Box prüfen.");
 
+// --- Punkt-Kommentare (an eine bestimmte Stelle anheften) ---
+await load();
+const ptToggle = await page.evaluate(() => {
+  const b = document.querySelector(".kommentare-margin .kommentare-point-toggle");
+  return !!b && b.textContent === "Punkt anheften";
+});
+check("Punkt: Umschalt-Button über den Notizen", ptToggle === true);
+
+// Punkt in der Mitte/oben des ersten <p> setzen (Element-relativer Anker)
+await page.evaluate(() => {
+  const p = document.querySelector("#content p");
+  const r = p.getBoundingClientRect();
+  window.instanz._placePoint(p, r.left + r.width * 0.5, r.top + r.height * 0.3);
+});
+await page.fill(".kommentare-compose textarea", "Genau hier.");
+await page.evaluate(() => {
+  const b = document.querySelectorAll(".kommentare-compose .kommentare-btn");
+  b[b.length - 1].click();
+});
+check("Punkt: Pin-Marker erzeugt", (await page.locator(".kommentare-point-mark").count()) === 1);
+check("Punkt: Punkt-Notiz in Randspalte", (await page.locator(".kommentare-note-point").count()) === 1);
+
+const ptAnns = await page.evaluate(() => instanz.getAnnotations());
+check("Punkt: Export enthält FragmentSelector (Prozent-Position)",
+  ptAnns.some((a) => a.target.selector.some((s) => s.type === "FragmentSelector" && /xywh=percent:/.test(s.value || ""))));
+
+const ptExport = await page.evaluate(() => instanz.export());
+await load();
+await page.evaluate((j) => instanz.import(j), ptExport);
+check("Punkt: nach Reload+Import wiederhergestellt", (await page.locator(".kommentare-point-mark").count()) === 1);
+const ptText = (await page.locator(".kommentare-note-point .kommentare-note-body").first().textContent()).trim();
+check("Punkt: Kommentartext wiederhergestellt", ptText === "Genau hier.");
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");
