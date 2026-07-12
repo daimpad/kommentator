@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -51,6 +51,7 @@ per HTTP Basic Auth in der .htaccess.
 * `kommentare_resizable` (bool) – ziehbare Notizspalte. Standard: an.
 * `kommentare_email` (string) – E-Mail-Empfänger für „Per E-Mail senden“
   (leer = Button aus). Standard: leer.
+* `kommentare_elements` (bool) – Element-Kommentare (Boxen/Bilder). Standard: an.
 * `kommentare_init_config` (array) – vollständige init-Optionen; hier lassen
   sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
@@ -64,6 +65,10 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.5.0 =
+* Element-Kommentare: beliebige Web-Elemente (Boxen/Container/Bilder) statt nur
+  Text kommentieren (Filter kommentare_elements).
 
 = 1.4.0 =
 * Download-Untermenü: JSON, „Notizen“ als Markdown, „Als PDF / drucken“.

@@ -34,6 +34,8 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
 
 - 🖍️ **Markieren & kommentieren** — Textstellen mit Maus oder Touch, auch über
   mehrere Absätze und verschachtelte Elemente hinweg.
+- 🔲 **Elemente kommentieren** — nicht nur Text: ganze Boxen, Container und
+  Bilder anklicken und kommentieren (W3C `CssSelector`).
 - 🧷 **Präzise Verankerung** — W3C-Web-Annotation-nah; Kommentare finden ihre
   Stelle beim Wiedereinlesen zuverlässig wieder.
 - 🔀 **Zusammenführen ohne Backend** — Rückmeldungen exportieren, einsammeln,
