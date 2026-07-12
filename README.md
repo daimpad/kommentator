@@ -19,6 +19,7 @@ Einbinden in bestehende Seiten.
 | `kommentare.css` | Gekapselte Stile (Präfix `kommentare-`, themebar über CSS-Variablen, Dark-Mode) |
 | `kommentare.js` | Das Werkzeug: `Kommentare.init(...)` |
 | `demo.html` | Einbindungsbeispiel & Kurz-Dokumentation |
+| `demo.js` | ausgelagerter Start-Code der Demo-Seite (nur für die Demo) |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` (für GitHub Pages) |
 | `wordpress/kommentare-tool/` | Installierbares WordPress-Plugin (bündelt die Assets) |
 | `test/acceptance.mjs` | Headless-Akzeptanztest (Playwright) |
@@ -55,11 +56,18 @@ Mount-Selektoren übergeben werden.
 | `margin` | Selektor \| Element | optionaler Mount für die Randspalte |
 | `toolbar` | Selektor \| Element | optionaler Mount für die Aktionsleiste |
 | `readOnly` | Boolean | nur ansehen, keine neuen Kommentare |
+| `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
+| `themeToggle` | Boolean | Hell-/Dunkel-Umschalter in der Aktionsleiste (Standard: `false`) |
+| `theme` | String | Anfangs-Theme: `'auto'` (Standard), `'light'`, `'dark'` |
 | `texte` | Object | überschreibt einzelne UI-Texte (i18n) |
 | `onCreate(anno)` | Funktion | nach dem Anlegen |
 | `onUpdate(anno)` | Funktion | nach dem Bearbeiten |
 | `onDelete(id)` | Funktion | nach dem Löschen |
 | `onChange(annos)` | Funktion | nach jeder Änderung (z. B. um extern zu speichern) |
+| `onThemeChange(theme)` | Funktion | nach Umschalten des Themes (z. B. um die Seite mitzufärben) |
+
+Instanz-Methode `instanz.setTheme('auto'\|'light'\|'dark')` schaltet das Theme
+auch programmatisch um.
 
 Instanz-Methoden:
 
@@ -96,12 +104,34 @@ Wortlaut mehrfach vor, wird über `prefix`/`suffix` die richtige Stelle gewählt
 Markierungen funktionieren knotenübergreifend (über mehrere Absätze und
 verschachtelte Elemente hinweg).
 
+## Zu welcher Seite gehören die Kommentare?
+
+`instanz.export()` schreibt eine Hülle um die Annotationen, die die Herkunft
+festhält — so erkennt der Betrieb beim Einsammeln, zu welcher Seite eine Datei
+gehört:
+
+```json
+{
+  "generator": "kommentar-tool",
+  "source": "https://example.org/dokument",
+  "sourceTitle": "Dokumenttitel",
+  "author": "Vorname Nachname",
+  "exported": "ISO-8601",
+  "annotations": [ … ]
+}
+```
+
+`source` ist die volle Seiten-URL, `sourceTitle` der Seitentitel zum
+Export-Zeitpunkt.
+
 ## Gestaltung / Theme
 
 Alle Farben liegen als CSS-Variablen auf `.kommentare-scope`. Zum Anpassen die
 Werte nach `kommentare.css` überschreiben. Ein Dark-Mode ist enthalten
 (automatisch per `prefers-color-scheme`, oder explizit per Klasse
-`kommentare-dark` bzw. `kommentare-light` am Scope-Element).
+`kommentare-dark` bzw. `kommentare-light` am Scope-Element). Mit
+`themeToggle: true` erscheint ein ☾/☀-Umschalter in der Aktionsleiste; per
+`onThemeChange` lässt sich die restliche Seite mitfärben (so macht es `demo.js`).
 
 ## WordPress
 

@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -44,6 +44,8 @@ per HTTP Basic Auth in der .htaccess.
 * `kommentare_autor` (string) – angezeigter Autorname. Standard: Anzeigename des
   eingeloggten Benutzers, sonst „Gast".
 * `kommentare_read_only` (bool) – nur ansehen, keine neuen Kommentare.
+* `kommentare_help` (bool) – „?“-Hilfe-Button. Standard: an.
+* `kommentare_theme_toggle` (bool) – Hell-/Dunkel-Umschalter. Standard: aus.
 * `kommentare_init_config` (array) – vollständige init-Optionen; hier lassen
   sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
@@ -57,6 +59,11 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.2.0 =
+* „?“-Hilfe-Button mit Kurzanleitung, optionaler Hell-/Dunkel-Umschalter.
+* Export speichert zusätzlich den Seitentitel (sourceTitle).
+* Neue Filter: kommentare_help, kommentare_theme_toggle.
 
 = 1.1.0 =
 * Modernisiertes Design (weiche Flächen, Akzentfarbe, Dark-Mode, Pill-Buttons).
