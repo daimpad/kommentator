@@ -56,8 +56,10 @@ Mount-Selektoren übergeben werden.
 | `margin` | Selektor \| Element | optionaler Mount für die Randspalte |
 | `toolbar` | Selektor \| Element | optionaler Mount für die Aktionsleiste |
 | `readOnly` | Boolean | nur ansehen, keine neuen Kommentare |
+| `toolbarMode` | String | `'bar'` (Balken oben, Standard) oder `'floating'` (Button unten rechts, der ein Menü öffnet) |
+| `resizable` | Boolean | ziehbare Randspalte im Auto-Layout (Standard: `true`) |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
-| `themeToggle` | Boolean | Hell-/Dunkel-Umschalter in der Aktionsleiste (Standard: `false`) |
+| `themeToggle` | Boolean | Hell-/Dunkel-Umschalter (Standard: `false`) |
 | `theme` | String | Anfangs-Theme: `'auto'` (Standard), `'light'`, `'dark'` |
 | `texte` | Object | überschreibt einzelne UI-Texte (i18n) |
 | `onCreate(anno)` | Funktion | nach dem Anlegen |

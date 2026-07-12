@@ -61,7 +61,10 @@
       ["Herunterladen", "„Meine Kommentare herunterladen“ speichert die eigenen Kommentare als JSON-Datei."],
       ["Zusammenführen", "„Kommentare laden“ liest exportierte Dateien ein und führt sie zusammen (ohne Duplikate)."]
     ],
-    hilfeHinweis: "Das Namensfeld ordnet Kommentare nur einer Person zu — es ist kein Zugriffsschutz. Beim Export werden die Seiten-URL und der Seitentitel mitgespeichert, damit erkennbar bleibt, zu welcher Seite die Kommentare gehören."
+    hilfeHinweis: "Das Namensfeld ordnet Kommentare nur einer Person zu — es ist kein Zugriffsschutz. Beim Export werden die Seiten-URL und der Seitentitel mitgespeichert, damit erkennbar bleibt, zu welcher Seite die Kommentare gehören.",
+    menuAria:           "Kommentar-Menü öffnen",
+    menuTitel:          "Kommentator",
+    groesseAria:        "Randspalte breiter oder schmaler ziehen"
   };
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
@@ -126,6 +129,12 @@
     this.themeToggle = !!options.themeToggle;     // Hell-/Dunkel-Umschalter (opt-in)
     this._theme = options.theme || "auto";        // "auto" | "light" | "dark"
     this._scopeEls = [];                          // Elemente, die die Theme-Klasse tragen
+    // Aktionsleiste als Balken oben ("bar", Standard) oder als Floating-Button
+    // unten rechts ("floating"), der ein Menü öffnet.
+    this.toolbarMode = options.toolbarMode === "floating" ? "floating" : "bar";
+    // Randspalte im Auto-Layout per Ziehgriff breiter/schmaler ziehbar
+    this.resizable = options.resizable !== false;
+    this._notesWidth = options.notesWidth || null; // z. B. "22rem" oder "320px"
 
     // UI-Texte: Standard + per-Instanz-Overrides (i18n), ohne globalen Zustand zu berühren
     this.texte = {};
@@ -287,6 +296,19 @@
       // Platzierung
       var autoToolbar = !this._toolbarHost;
       var autoMargin = !this._marginHost;
+      var floating = this.toolbarMode === "floating" && autoToolbar;
+      if (floating) titleEl.textContent = T.menuTitel;
+
+      // Ziehgriff zwischen Dokument und Randspalte (nur Auto-Layout)
+      var gutter = null;
+      if (autoMargin && this.resizable) {
+        gutter = el("div", "kommentare-gutter");
+        gutter.setAttribute("role", "separator");
+        gutter.setAttribute("aria-orientation", "vertical");
+        gutter.setAttribute("aria-label", T.groesseAria);
+        gutter.setAttribute("tabindex", "0");
+      }
+      this._gutterEl = gutter;
 
       if (autoToolbar && autoMargin) {
         // vollständiges Layout selbst erzeugen und den Container umschließen
@@ -294,12 +316,16 @@
         this._containerHome = { parent: parent, next: c.nextSibling };
         var wrapper = el("div", "kommentare kommentare-scope");
         var body = el("div", "kommentare-body");
+        if (gutter) body.classList.add("kommentare-body-resizable");
         parent.insertBefore(wrapper, c);
-        wrapper.appendChild(toolbar);
+        if (!floating) wrapper.appendChild(toolbar); // im Balken-Modus oben
         wrapper.appendChild(body);
-        body.appendChild(c);       // Container wird zur Dokumentspalte
-        body.appendChild(margin);  // Randspalte daneben
+        body.appendChild(c);              // Container wird zur Dokumentspalte
+        if (gutter) body.appendChild(gutter);
+        body.appendChild(margin);         // Randspalte daneben
+        if (this._notesWidth) body.style.setProperty("--k-notes-w", this._notesWidth);
         this._wrapper = wrapper;
+        this._bodyEl = body;
       } else {
         // Mount-Elemente nutzen; fehlende Teile neben dem Container platzieren
         if (this._toolbarHost) {
@@ -317,6 +343,25 @@
         this._insertedNodes.push(margin);
       }
 
+      // Floating-Modus: Aktionsleiste in ein Menü hinter einem Button unten rechts
+      var fab = null, panel = null;
+      if (floating) {
+        panel = el("div", "kommentare-panel kommentare-scope kommentare-hidden");
+        panel.setAttribute("role", "menu");
+        panel.setAttribute("aria-label", T.menuTitel);
+        panel.appendChild(toolbar);
+        fab = el("button", "kommentare-fab kommentare-scope");
+        fab.type = "button";
+        fab.setAttribute("aria-label", T.menuAria);
+        fab.setAttribute("aria-expanded", "false");
+        fab.textContent = "☰";
+        document.body.appendChild(panel);
+        document.body.appendChild(fab);
+        this._insertedNodes.push(panel, fab);
+      }
+      this._fabEl = fab;
+      this._panelEl = panel;
+
       document.body.appendChild(compose);
       document.body.appendChild(fileIn);
       this._insertedNodes.push(compose, fileIn);
@@ -325,6 +370,8 @@
       // Elemente sammeln, die die Theme-Klasse tragen, und Anfangs-Theme setzen
       this._scopeEls = [this.container, toolbar, margin, compose];
       if (help) this._scopeEls.push(help);
+      if (fab) this._scopeEls.push(fab);
+      if (panel) this._scopeEls.push(panel);
       if (this._wrapper) this._scopeEls.push(this._wrapper);
       this._applyTheme(this._theme);
     },
@@ -390,6 +437,76 @@
         };
         this._themeBtn.addEventListener("click", this._onThemeToggle);
       }
+
+      // Floating-Menü (Button unten rechts)
+      if (this._fabEl && this._panelEl) {
+        this._onFabToggle = function (e) { e.stopPropagation(); self._toggleMenu(); };
+        this._onDocClick = function (e) {
+          if (self._panelEl.classList.contains("kommentare-hidden")) return;
+          if (self._panelEl.contains(e.target) || self._fabEl.contains(e.target)) return;
+          self._toggleMenu(false);
+        };
+        this._onMenuKey = function (e) { if (e.key === "Escape") self._toggleMenu(false); };
+        this._fabEl.addEventListener("click", this._onFabToggle);
+        document.addEventListener("click", this._onDocClick);
+        this._panelEl.addEventListener("keydown", this._onMenuKey);
+      }
+
+      // Ziehgriff der Randspalte
+      if (this._gutterEl) {
+        this._onGutterDown = function (e) { self._startResize(e); };
+        this._onGutterKey = function (e) {
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          e.preventDefault();
+          self._resizeBy(e.key === "ArrowLeft" ? 24 : -24); // links = breiter
+        };
+        this._gutterEl.addEventListener("pointerdown", this._onGutterDown);
+        this._gutterEl.addEventListener("keydown", this._onGutterKey);
+      }
+    },
+
+    /* ---- Floating-Menü ----------------------------------------------- */
+    _toggleMenu: function (force) {
+      if (!this._panelEl) return;
+      var hidden = this._panelEl.classList.contains("kommentare-hidden");
+      var open = typeof force === "boolean" ? force : hidden;
+      this._panelEl.classList.toggle("kommentare-hidden", !open);
+      if (this._fabEl) this._fabEl.setAttribute("aria-expanded", open ? "true" : "false");
+    },
+
+    /* ---- Randspalte in der Breite ziehen ----------------------------- */
+    _clampNotes: function (px) {
+      if (!this._bodyEl) return px;
+      var total = this._bodyEl.clientWidth || 1000;
+      var min = 160, max = Math.max(min, total * 0.7);
+      return Math.round(Math.min(max, Math.max(min, px)));
+    },
+    _currentNotes: function () {
+      return this._marginEl ? this._marginEl.getBoundingClientRect().width : 320;
+    },
+    _resizeBy: function (delta) {
+      if (!this._bodyEl) return;
+      this._bodyEl.style.setProperty("--k-notes-w", this._clampNotes(this._currentNotes() + delta) + "px");
+    },
+    _startResize: function (e) {
+      if (!this._bodyEl) return;
+      var self = this;
+      var bodyRect = this._bodyEl.getBoundingClientRect();
+      try { this._gutterEl.setPointerCapture(e.pointerId); } catch (_) {}
+      this._gutterEl.classList.add("is-dragging");
+      var move = function (ev) {
+        // Notiz-Breite = rechter Rand des Bodys minus Zeigerposition
+        var w = self._clampNotes(bodyRect.right - ev.clientX);
+        self._bodyEl.style.setProperty("--k-notes-w", w + "px");
+      };
+      var up = function () {
+        self._gutterEl.classList.remove("is-dragging");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        try { self._gutterEl.releasePointerCapture(e.pointerId); } catch (_) {}
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
     },
 
     _emitChange: function () {
@@ -788,6 +905,7 @@
       this.container.removeEventListener("touchend", this._onTouchEnd);
       this.container.removeEventListener("click", this._onContainerClick);
       this.container.removeEventListener("keydown", this._onContainerKey);
+      if (this._onDocClick) document.removeEventListener("click", this._onDocClick);
 
       // Markierungen entfernen, Ausgangs-DOM wiederherstellen
       this._unwrapMarks();

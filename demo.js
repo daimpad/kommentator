@@ -1,52 +1,51 @@
 /* ============================================================================
    demo.js — nur für die Demo-Seite.
    ----------------------------------------------------------------------------
-   Startet das Kommentar-Werkzeug und bietet Demo-Komfort: Autor:in wechseln
-   ohne Neuladen sowie einen Hell-/Dunkel-Umschalter, der auch die Demo-Seite
-   selbst umfärbt (über data-theme am <html>).
+   Beim Laden erscheint ein Namens-Modal. Nach „Übernehmen“ wird es dauerhaft
+   ausgeblendet und das Werkzeug gestartet: volle Breite Text, rechts die
+   ziehbare Notizspalte, alle Funktionen hinter dem Button unten rechts (☰).
 
-   In einer echten Einbindung genügt der init-Aufruf – siehe README / Hilfe-Button.
+   In einer echten Einbindung genügt der init-Aufruf – siehe „Für
+   Entwickler:innen“ am Seitenende oder die README.
    ========================================================================== */
 (function () {
   "use strict";
 
-  var autorInput = document.getElementById("autor");
-  var applyBtn = document.getElementById("apply");
+  var gate = document.getElementById("gate");
+  var nameInput = document.getElementById("gate-name");
+  var goBtn = document.getElementById("gate-go");
 
-  // aktueller Theme-Zustand ("auto" | "light" | "dark"), über Umschalter gesetzt
-  var current = document.documentElement.getAttribute("data-theme") || "auto";
+  // Theme-Zustand ("auto" | "light" | "dark") – vom Umschalter im Menü gesetzt
+  var currentTheme = document.documentElement.getAttribute("data-theme") || "auto";
 
   function applyPageTheme(theme) {
-    current = theme;
+    currentTheme = theme;
     if (theme === "auto") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", theme);
   }
 
   function start(name) {
-    return window.Kommentare.init({
+    window.instanz = window.Kommentare.init({
       container: "[data-kommentierbar]",
       autor: name,
-      help: true,          // „?“-Button mit Kurzanleitung
-      themeToggle: true,    // Hell-/Dunkel-Umschalter in der Aktionsleiste
-      theme: current,       // Anfangszustand übernehmen
-      onThemeChange: applyPageTheme // Demo-Seite mit umfärben
+      toolbarMode: "floating",   // Funktionen hinter dem Button unten rechts
+      resizable: true,           // Notizspalte am Griff breiter ziehbar
+      help: true,                // „?“ mit Kurzanleitung (im Menü)
+      themeToggle: true,         // ☾/☀ im Menü
+      theme: currentTheme,
+      onThemeChange: applyPageTheme // Demo-Seite mitfärben
     });
   }
 
-  function currentName() {
-    return (autorInput && autorInput.value.trim()) || "Gast";
+  function enter() {
+    var name = (nameInput && nameInput.value.trim()) || "Gast";
+    if (gate) gate.style.display = "none"; // Modal dauerhaft ausblenden
+    start(name);
   }
 
-  window.instanz = start(currentName());
-
-  // Autor:in wechseln: Instanz neu aufbauen, Notizen erhalten.
-  if (applyBtn) {
-    applyBtn.addEventListener("click", function () {
-      var name = currentName();
-      var annos = window.instanz.getAnnotations();
-      window.instanz.destroy();
-      window.instanz = start(name);
-      window.instanz.import(annos);
-    });
-  }
+  if (goBtn) goBtn.addEventListener("click", enter);
+  if (nameInput) nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") enter();
+  });
+  if (nameInput) nameInput.focus();
 })();
