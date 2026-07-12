@@ -9,10 +9,10 @@
 <link rel="stylesheet" href="kommentare.css">
 
 <!--
-  Diese Seite bindet nur kommentare.css + kommentare.js ein. Der Start-Code
-  liegt ausgelagert in demo.js, damit die Seite aufgeräumt bleibt. Erklärungen
-  zur Bedienung stecken im „?“-Button des Werkzeugs; Einbindung & Sicherheit
-  sind unten ausklappbar. Die inline-Stile gelten nur der Demo-Seite.
+  Diese Seite bindet nur kommentare.css + kommentare.js ein; der Start-Code
+  liegt in demo.js. Beim Laden erscheint ein Namens-Modal; danach sieht man
+  in voller Breite den Text und rechts die (ziehbare) Notizspalte. Alle
+  Funktionen stecken hinter dem Button unten rechts.
 -->
 <style>
   :root{
@@ -23,176 +23,143 @@
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --radius:14px; --radius-sm:9px; --pill:999px;
     --shadow:0 1px 2px rgba(20,20,15,.05),0 4px 14px rgba(20,20,15,.06);
-    --code-bg:#1b1b18; --code-ink:#f4f3ea;
+    --shadow-lg:0 12px 40px rgba(20,20,15,.18); --code-bg:#1b1b18; --code-ink:#f4f3ea;
   }
-  /* Dunkel nach Systemvorgabe … */
   @media(prefers-color-scheme:dark){
     :root:not([data-theme="light"]){
       --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
       --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
-      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45); --code-bg:#0e0e0c;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
+      --shadow-lg:0 14px 44px rgba(0,0,0,.6); --code-bg:#0e0e0c;
     }
   }
-  /* … oder explizit per Umschalter (data-theme am <html>) */
   :root[data-theme="dark"]{
     --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
     --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45); --code-bg:#0e0e0c;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
+    --shadow-lg:0 14px 44px rgba(0,0,0,.6); --code-bg:#0e0e0c;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
   body{background:var(--page);color:var(--tint);font-family:var(--serif);line-height:1.65;
     -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1200px;margin:0 auto;padding:2.5rem 1.2rem 6rem}
-  .doc{font-size:1.075rem}
-
-  .hero{margin:0 0 2rem}
-  .eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--ui);
-    font-size:.74rem;font-weight:650;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--accent);background:var(--accent-soft);padding:.3rem .7rem;
-    border-radius:var(--pill);margin-bottom:1rem}
-  .eyebrow::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
-  .doc h1{font-family:var(--ui);font-size:clamp(1.9rem,4vw,2.6rem);line-height:1.1;
-    letter-spacing:-.02em;font-weight:700;margin:0 0 .8rem}
-  .lede{font-size:1.15rem;color:var(--faint);max-width:60ch;margin:0}
-  .doc h2{font-family:var(--ui);font-size:1.15rem;font-weight:650;letter-spacing:-.01em;
-    margin:2.5rem 0 .9rem}
-  .doc p{margin:0 0 1.15rem}
+  .wrap{max-width:1400px;margin:0 auto;padding:1.6rem 1.4rem 6rem}
   .doc code{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);
     color:var(--accent);padding:.1em .35em;border-radius:5px}
 
-  .hint{font-family:var(--ui);font-size:.85rem;color:var(--faint);
-    background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
-    border-radius:var(--radius-sm);padding:.8rem 1rem;margin-bottom:1.75rem;box-shadow:var(--shadow)}
-
-  pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;
-    background:var(--code-bg);color:var(--code-ink);padding:1.1rem 1.2rem;overflow-x:auto;
-    border-radius:var(--radius-sm);margin:0}
-
-  .setup{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;
-    font-family:var(--ui);font-size:.85rem;color:var(--faint);margin-bottom:1.9rem;
-    background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
-    padding:.7rem .85rem;box-shadow:var(--shadow)}
-  .setup label{font-weight:600;color:var(--tint)}
-  .setup input{font-family:var(--ui);font-size:.95rem;padding:.45rem .65rem;color:var(--tint);
-    border:1px solid var(--rule-strong);border-radius:var(--radius-sm);background:var(--page)}
-  .setup input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .setup button{font-family:var(--ui);font-size:.83rem;font-weight:550;cursor:pointer;
+  /* Namens-Modal beim Laden */
+  .gate{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;
+    padding:1.2rem;background:rgba(20,20,15,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .gate-box{width:min(30rem,100%);background:var(--surface);color:var(--tint);
+    border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-lg);
+    padding:1.6rem 1.6rem 1.4rem;font-family:var(--ui)}
+  .gate-eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.72rem;font-weight:650;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+    padding:.3rem .7rem;border-radius:var(--pill);margin-bottom:1rem}
+  .gate-eyebrow::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
+  .gate-box h2{font-family:var(--ui);font-size:1.3rem;font-weight:700;letter-spacing:-.01em;margin:0 0 .6rem}
+  .gate-hint{font-size:.92rem;line-height:1.55;color:var(--faint);margin:0 0 1.3rem}
+  .gate-box label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.4rem}
+  .gate-box input{width:100%;font-family:var(--ui);font-size:1.05rem;padding:.6rem .7rem;color:var(--tint);
+    border:1px solid var(--rule-strong);border-radius:var(--radius-sm);background:var(--page);margin-bottom:1rem}
+  .gate-box input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .gate-box button{width:100%;font-family:var(--ui);font-size:.95rem;font-weight:600;cursor:pointer;
     background:var(--accent);color:#fff;border:1px solid var(--accent);
-    padding:.45rem .85rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
-  .setup button:hover{filter:brightness(1.08);transform:translateY(-1px)}
-  .setup button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    padding:.6rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
+  .gate-box button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .gate-box button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .gate-fine{font-size:.75rem;color:var(--faint);line-height:1.5;margin:1rem 0 0}
 
-  /* Ausklappbare Entwickler-Doku, damit die Seite aufgeräumt bleibt */
+  /* dezente Entwickler-Doku am Seitenende */
+  .devdocs{max-width:70ch;margin:3rem auto 0;font-family:var(--ui)}
   details.box{border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
-    box-shadow:var(--shadow);margin:0 0 1rem;overflow:hidden}
-  details.box>summary{cursor:pointer;list-style:none;font-family:var(--ui);font-weight:600;
-    font-size:.9rem;padding:.85rem 1rem;color:var(--tint)}
+    box-shadow:var(--shadow);margin:0 0 .8rem;overflow:hidden}
+  details.box>summary{cursor:pointer;list-style:none;font-weight:600;font-size:.88rem;
+    padding:.8rem 1rem;color:var(--tint)}
   details.box>summary::-webkit-details-marker{display:none}
-  details.box>summary::before{content:"▸";color:var(--accent);display:inline-block;
-    width:1.1em;transition:transform .15s}
-  details.box[open]>summary::before{transform:rotate(90deg)}
+  details.box>summary::before{content:"▸";color:var(--accent);display:inline-block;width:1.1em}
+  details.box[open]>summary::before{content:"▾"}
   details.box .inner{padding:0 1rem 1rem}
-  details.box p{font-family:var(--ui);font-size:.88rem;color:var(--faint);margin:.2rem 0 1rem}
-  @media(prefers-reduced-motion:reduce){
-    .setup button,details.box>summary::before{transition:none}
-  }
+  details.box p{font-size:.86rem;color:var(--faint);margin:.2rem 0 .9rem}
+  pre{font-family:var(--mono);font-size:.78rem;line-height:1.6;background:var(--code-bg);
+    color:var(--code-ink);padding:1rem 1.1rem;overflow-x:auto;border-radius:var(--radius-sm);margin:0}
+  @media(prefers-reduced-motion:reduce){.gate-box button{transition:none}}
 </style>
 </head>
 <body>
 
+<!-- Namens-Modal (wird von demo.js gesteuert) -->
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="gate-box">
+    <span class="gate-eyebrow">Kommentator</span>
+    <h2 id="gate-title">Willkommen</h2>
+    <p class="gate-hint">Markiere im Text eine Stelle, um sie zu kommentieren.
+    Über den Button&nbsp;<b>☰ unten rechts</b> erreichst du alle Funktionen —
+    Kommentare laden, herunterladen, Hilfe und den&nbsp;☾/☀ Hell-/Dunkelmodus.
+    Die Notizspalte rechts lässt sich am Griff breiter ziehen.</p>
+    <label for="gate-name">Dein Name</label>
+    <input id="gate-name" type="text" value="Gast" autocomplete="name" placeholder="z. B. Vorname Nachname">
+    <button id="gate-go" type="button">Übernehmen</button>
+    <p class="gate-fine">Das Namensfeld ordnet Kommentare deinem Namen zu — es ist
+    <b>kein</b> Zugriffsschutz. Kommentare bleiben im Browser, bis du sie exportierst.</p>
+  </div>
+</div>
+
 <div class="wrap">
-  <article class="doc">
-    <header class="hero">
-      <span class="eyebrow">Kommentar-Werkzeug</span>
-      <h1>Textstellen markieren &amp; kommentieren</h1>
-      <p class="lede">Einbindbar in jede Seite — als statische Dateien, ohne
-      Server, ohne Build, ohne externe Abhängigkeiten.</p>
-    </header>
+  <!-- ================= INHALT HIER ERSETZEN ================= -->
+  <div data-kommentierbar id="content">
+    <h1>Beispieltext zum Ersetzen</h1>
+    <p>Dies ist Platzhaltertext. Ersetze den Inhalt dieses Bereichs
+    (<code>&lt;div data-kommentierbar&gt;</code>) durch das Dokument, das
+    kommentiert werden soll. Die Markierungs- und Kommentarfunktion arbeitet
+    auf jedem Fließtext, auch über mehrere Absätze und verschachtelte
+    Elemente hinweg.</p>
+    <p>Jede Markierung speichert den exakten Wortlaut, etwas Kontext davor und
+    danach sowie die Zeichenposition im Text. So lassen sich Kommentare beim
+    Wiedereinlesen genau an derselben Stelle verankern — vorausgesetzt, der
+    Ausgangstext bleibt zwischen den Runden unverändert.</p>
+    <p>Für geteilte Sichtbarkeit ohne Server sammelst du die exportierten
+    Dateien der Beteiligten ein und liest sie über „Kommentare laden“
+    gemeinsam ein. Alle Notizen erscheinen dann nebeneinander in der
+    Randspalte, mit Namen der jeweiligen Autor:innen.</p>
+  </div>
+  <!-- ================= ENDE INHALT ================= -->
 
-    <p class="hint">Markiere im Text eine Stelle, um sie zu kommentieren. Der
-    „?“-Button in der Aktionsleiste erklärt alle Funktionen; über das
-    ☾/☀-Symbol wechselst du zwischen Hell- und Dunkelmodus.</p>
-
-    <!--
-      Setup-Zeile NUR für diese Demo: Autor:in wählen. In einer echten
-      Einbindung entfällt das — der Name wird an Kommentare.init({ autor }) übergeben.
-    -->
-    <div class="setup">
-      <label for="autor">Autor:in:</label>
-      <input id="autor" type="text" value="Gast" autocomplete="name">
-      <button id="apply" type="button">Übernehmen</button>
-    </div>
-
-    <!-- ================= INHALT HIER ERSETZEN ================= -->
-    <div data-kommentierbar id="content">
-      <h1>Beispieltext zum Ersetzen</h1>
-      <p>Dies ist Platzhaltertext. Ersetze den Inhalt dieses Bereichs
-      (<code>&lt;div data-kommentierbar&gt;</code>) durch das Dokument, das
-      kommentiert werden soll. Die Markierungs- und Kommentarfunktion arbeitet
-      auf jedem Fließtext, auch über mehrere Absätze und verschachtelte
-      Elemente hinweg.</p>
-      <p>Jede Markierung speichert den exakten Wortlaut, etwas Kontext davor und
-      danach sowie die Zeichenposition im Text. So lassen sich Kommentare beim
-      Wiedereinlesen genau an derselben Stelle verankern — vorausgesetzt, der
-      Ausgangstext bleibt zwischen den Runden unverändert.</p>
-      <p>Für geteilte Sichtbarkeit ohne Server sammelst du die exportierten
-      Dateien der Beteiligten ein und liest sie über „Kommentare laden“
-      gemeinsam ein. Alle Notizen erscheinen dann nebeneinander in der
-      Randspalte, mit Namen der jeweiligen Autor:innen.</p>
-    </div>
-    <!-- ================= ENDE INHALT ================= -->
-
-    <h2>Für Entwickler:innen</h2>
-
+  <div class="devdocs">
     <details class="box">
-      <summary>So bindest du es ein</summary>
+      <summary>Für Entwickler:innen — so bindest du es ein</summary>
       <div class="inner">
-        <p>Drei Schritte — kein Build, keine Abhängigkeiten:</p>
-        <pre>&lt;!-- 1. Stylesheet in den &lt;head&gt; --&gt;
-&lt;link rel="stylesheet" href="kommentare.css"&gt;
-
-&lt;!-- 2. Zu kommentierenden Bereich auszeichnen --&gt;
+        <p>Drei Schritte, kein Build, keine Abhängigkeiten:</p>
+        <pre>&lt;link rel="stylesheet" href="kommentare.css"&gt;
 &lt;div data-kommentierbar&gt; … dein Fließtext … &lt;/div&gt;
-
-&lt;!-- 3. Skript vor &lt;/body&gt; laden und starten --&gt;
 &lt;script src="kommentare.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   Kommentare.init({
     container: '[data-kommentierbar]',
-    autor: 'Vorname Nachname'
-    // optional: margin, toolbar, readOnly, texte (i18n),
-    //           help, themeToggle, theme ('auto'|'light'|'dark'),
-    //           onCreate, onUpdate, onDelete, onChange, onThemeChange
+    autor: 'Vorname Nachname',
+    toolbarMode: 'floating', // Button unten rechts statt Balken oben
+    themeToggle: true
+    // weiter: help, resizable, texte, readOnly,
+    //         onCreate/onUpdate/onDelete/onChange/onThemeChange
   });
 &lt;/script&gt;</pre>
       </div>
     </details>
-
     <details class="box">
       <summary>Sicherheit &amp; geteilte Sichtbarkeit</summary>
       <div class="inner">
         <p>Das Namensfeld dient nur der <b>Zuordnung</b>, es ist <b>kein
-        Zugriffsschutz</b>. Echten Schutz („Name + Passwort“) realisiert der
-        Betrieb auf Server-Ebene, z. B. per HTTP Basic Auth in einer
-        <code>.htaccess</code>:</p>
-        <pre>AuthType Basic
-AuthName "Kommentierung"
-AuthUserFile /pfad/zu/.htpasswd
-Require valid-user</pre>
-        <p style="margin-top:1rem">Geteilte Sichtbarkeit ist bewusst asynchron
-        und ohne Backend: Nutzer:innen exportieren ihre Kommentare, der Betrieb
-        sammelt die JSON-Dateien ein und liest sie über „Kommentare laden“
-        gemeinsam wieder ein. Beim Export werden <code>source</code> (Seiten-URL)
-        und <code>sourceTitle</code> gespeichert, sodass erkennbar bleibt, zu
-        welcher Seite die Kommentare gehören. Kein Server, kein localStorage —
-        der Zustand bleibt im Speicher der Sitzung.</p>
+        Zugriffsschutz</b>. Echten Schutz regelt der Betrieb serverseitig, z. B.
+        per HTTP Basic Auth (<code>.htaccess</code>). Geteilte Sichtbarkeit ist
+        asynchron und ohne Backend: exportieren → einsammeln → über „Kommentare
+        laden“ importieren. Beim Export werden <code>source</code> (URL) und
+        <code>sourceTitle</code> gespeichert.</p>
       </div>
     </details>
-  </article>
+  </div>
 </div>
 
-<!-- (2) Werkzeug laden, (3) Start-Code ausgelagert in demo.js -->
+<!-- (2) Werkzeug + (3) ausgelagerter Start-Code -->
 <script src="kommentare.js"></script>
 <script src="demo.js"></script>
 </body>

@@ -29,7 +29,14 @@ function check(name, cond) {
 const browser = await chromium.launch(launchOpts);
 const page = await browser.newPage({ viewport: { width: 1280, height: 1400 } });
 page.on("pageerror", (e) => console.log("  [pageerror]", e.message));
-await page.goto(demoUrl);
+
+// Demo lädt jetzt mit Namens-Modal; laden + Modal bestätigen (Autor „Gast").
+async function load() {
+  await page.goto(demoUrl);
+  await page.fill("#gate-name", "Gast");
+  await page.click("#gate-go");
+}
+await load();
 
 // Auswahl im Container per exaktem Text erzeugen und Kommentar speichern.
 async function selectAndComment(exact, comment) {
@@ -113,6 +120,35 @@ check("Theme: Umschalter vorhanden", themeRes.has);
 check("Theme: Klick setzt Theme-Klasse am Scope", themeRes.scopeThemed);
 check("Theme: Demo-Seite folgt (data-theme am <html>)", themeRes.pageThemed);
 
+// --- Floating-Menü (Button unten rechts) ---
+const fab = await page.evaluate(() => ({
+  hasFab: !!document.querySelector(".kommentare-fab"),
+  hiddenBefore: document.querySelector(".kommentare-panel").classList.contains("kommentare-hidden")
+}));
+await page.evaluate(() => document.querySelector(".kommentare-fab").click());
+const fabOpened = await page.evaluate(() =>
+  !document.querySelector(".kommentare-panel").classList.contains("kommentare-hidden"));
+await page.evaluate(() => document.querySelector(".kommentare-fab").click()); // wieder schließen
+check("Floating: FAB unten rechts vorhanden", fab.hasFab);
+check("Floating: Menü initial verborgen", fab.hiddenBefore === true);
+check("Floating: FAB öffnet das Menü", fabOpened === true);
+
+// --- Ziehbare Notizspalte ---
+const resize = await page.evaluate(() => {
+  const g = document.querySelector(".kommentare-gutter");
+  if (!g) return { has: false };
+  const body = document.querySelector(".kommentare-body");
+  const rect = body.getBoundingClientRect();
+  const width = () => document.querySelector(".kommentare-margin").getBoundingClientRect().width;
+  const before = width();
+  g.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, clientX: rect.right - 300 }));
+  document.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerId: 1, clientX: rect.right - 460 }));
+  document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }));
+  return { has: true, before, after: width() };
+});
+check("Resizable: Ziehgriff vorhanden", resize.has === true);
+check("Resizable: Ziehen verbreitert die Notizspalte", resize.after > resize.before + 20);
+
 // --- Bearbeiten einer bestehenden Notiz ---
 await page.evaluate(() => {
   const btns = [...document.querySelectorAll(".kommentare-note-actions .kommentare-btn")];
@@ -128,7 +164,7 @@ check("Bearbeiten: Notiztext aktualisiert", editedBody === "Bearbeiteter Text.")
 check("Bearbeiten: weiterhin genau 1 Notiz", (await page.locator(".kommentare-note").count()) === 1);
 
 // --- Abnahmekriterium 2: Reload + Import -> gleiche Stelle ---
-await page.goto(demoUrl);
+await load();
 await page.evaluate((json) => instanz.import(json), exported);
 check("Reload+Import: Markierung wiederhergestellt", (await page.locator("#content mark.kommentare-mark").count()) === 1);
 const markText = (await page.locator("#content mark.kommentare-mark").first().textContent()).trim();
@@ -136,7 +172,7 @@ check("Reload+Import: exakter Wortlaut verankert", markText === "Zeichenposition
 
 // --- prefix/suffix-Disambiguierung bei mehrfachem Vorkommen ---
 // "Text" kommt mehrfach vor; die Position stimmt nach Reload nicht -> Fallback per Wortlaut.
-await page.goto(demoUrl);
+await load();
 const dis = await page.evaluate(() => {
   const full = (function () {
     const w = document.createTreeWalker(document.getElementById("content"), NodeFilter.SHOW_TEXT);
@@ -166,7 +202,7 @@ check("Disambiguierung: genau eine Markierung gesetzt", dis.count === 1);
 check("Disambiguierung: Wortlaut getroffen", dis.foundText === "Text");
 
 // --- Abnahmekriterium 3: mehrere Autor:innen, Dedupe nach id ---
-await page.goto(demoUrl);
+await load();
 const fileA = JSON.stringify({ annotations: [{
   id: "shared-1", type: "Annotation", creator: { name: "Alice" },
   body: [{ type: "TextualBody", value: "Alice Kommentar" }],
@@ -198,7 +234,7 @@ const changeFires = await page.evaluate(async () => {
 check("onChange feuert bei Import", changeFires >= 1);
 
 // --- i18n: per-Instanz-Texte ---
-await page.goto(demoUrl);
+await load();
 const i18nHead = await page.evaluate(() => {
   const host = document.querySelector(".wrap");
   const d = document.createElement("div"); d.id = "c-i18n"; d.innerHTML = "<p>Hello world text.</p>";
@@ -213,7 +249,7 @@ const i18nHead = await page.evaluate(() => {
 check("i18n: Instanz-Text 'NOTES' angewandt", i18nHead.includes("NOTES"));
 
 // --- destroy() stellt Ausgangs-DOM wieder her ---
-await page.goto(demoUrl);
+await load();
 const pristine = await page.evaluate(() => document.getElementById("content").innerHTML);
 await selectAndComment("Platzhaltertext", "temp");
 await page.evaluate(() => instanz.destroy());
@@ -227,6 +263,22 @@ const leftover = await page.evaluate(() => ({
 }));
 check("destroy(): Aktionsleiste/Randspalte/Popover entfernt",
   leftover.toolbar === 0 && leftover.margin === 0 && leftover.compose === 0);
+
+// --- Namens-Modal: erscheint beim Laden, verschwindet nach „Übernehmen" ---
+await page.goto(demoUrl); // bewusst OHNE load() – wir prüfen das Modal selbst
+const gateBefore = await page.evaluate(() => {
+  const g = document.getElementById("gate");
+  return { visible: g && getComputedStyle(g).display !== "none", noInstanz: typeof window.instanz === "undefined" };
+});
+await page.fill("#gate-name", "Gast");
+await page.click("#gate-go");
+const gateAfter = await page.evaluate(() => ({
+  hidden: getComputedStyle(document.getElementById("gate")).display === "none",
+  hasInstanz: typeof window.instanz !== "undefined"
+}));
+check("Modal: erscheint beim Laden", gateBefore.visible === true);
+check("Modal: Werkzeug startet erst nach Übernehmen", gateBefore.noInstanz === true);
+check("Modal: verschwindet nach Übernehmen", gateAfter.hidden === true && gateAfter.hasInstanz === true);
 
 await browser.close();
 const failed = results.filter((r) => !r[1]);
