@@ -77,6 +77,41 @@ const w3c = parsed.annotations[0];
 check("W3C: type Annotation", w3c.type === "Annotation");
 check("W3C: TextQuoteSelector", w3c.target.selector.some((s) => s.type === "TextQuoteSelector"));
 check("W3C: TextPositionSelector", w3c.target.selector.some((s) => s.type === "TextPositionSelector"));
+check("Export: sourceTitle vorhanden", typeof parsed.sourceTitle === "string" && parsed.sourceTitle.length > 0);
+
+// --- Hilfe-Button öffnet/schließt das Panel ---
+const helpInitiallyHidden = await page.evaluate(() =>
+  document.querySelector(".kommentare-help").classList.contains("kommentare-hidden"));
+await page.evaluate(() => {
+  const b = [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")]
+    .find((x) => x.getAttribute("aria-label") === "Hilfe anzeigen");
+  b.click();
+});
+const helpOpened = await page.evaluate(() =>
+  !document.querySelector(".kommentare-help").classList.contains("kommentare-hidden"));
+await page.keyboard.press("Escape");
+const helpClosed = await page.evaluate(() =>
+  document.querySelector(".kommentare-help").classList.contains("kommentare-hidden"));
+check("Hilfe: Panel initial verborgen", helpInitiallyHidden === true);
+check("Hilfe: Button öffnet Panel", helpOpened === true);
+check("Hilfe: Escape schließt Panel", helpClosed === true);
+
+// --- Theme-Umschalter setzt Theme-Klasse + färbt die Seite ---
+const themeRes = await page.evaluate(() => {
+  const b = [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")]
+    .find((x) => x.getAttribute("aria-label") === "Hell-/Dunkelmodus umschalten");
+  const has = !!b;
+  if (b) b.click();
+  const content = document.getElementById("content");
+  return {
+    has,
+    scopeThemed: content.classList.contains("kommentare-dark") || content.classList.contains("kommentare-light"),
+    pageThemed: ["dark", "light"].includes(document.documentElement.getAttribute("data-theme"))
+  };
+});
+check("Theme: Umschalter vorhanden", themeRes.has);
+check("Theme: Klick setzt Theme-Klasse am Scope", themeRes.scopeThemed);
+check("Theme: Demo-Seite folgt (data-theme am <html>)", themeRes.pageThemed);
 
 // --- Bearbeiten einer bestehenden Notiz ---
 await page.evaluate(() => {

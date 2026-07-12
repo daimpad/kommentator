@@ -48,7 +48,20 @@
     mehrereKommentare:  " Kommentare",
     leseFehler:         "Datei konnte nicht gelesen werden: ",
     markierungAria:     "Kommentar",        // Präfix für aria-label der Markierung
-    von:                "von"
+    von:                "von",
+    hilfeBtn:           "?",
+    hilfeAria:          "Hilfe anzeigen",
+    hilfeTitel:         "So funktioniert’s",
+    hilfeSchliessen:    "Schließen",
+    themeAria:          "Hell-/Dunkelmodus umschalten",
+    hilfeSchritte: [
+      ["Markieren", "Textstelle mit der Maus oder per Touch markieren, um sie zu kommentieren."],
+      ["Verbinden", "Klick auf eine Markierung oder eine Notiz hebt beide gemeinsam hervor."],
+      ["Bearbeiten", "Eigene Notizen lassen sich über „bearbeiten“ und „löschen“ ändern."],
+      ["Herunterladen", "„Meine Kommentare herunterladen“ speichert die eigenen Kommentare als JSON-Datei."],
+      ["Zusammenführen", "„Kommentare laden“ liest exportierte Dateien ein und führt sie zusammen (ohne Duplikate)."]
+    ],
+    hilfeHinweis: "Das Namensfeld ordnet Kommentare nur einer Person zu — es ist kein Zugriffsschutz. Beim Export werden die Seiten-URL und der Seitentitel mitgespeichert, damit erkennbar bleibt, zu welcher Seite die Kommentare gehören."
   };
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
@@ -106,6 +119,13 @@
     this.onUpdate = typeof options.onUpdate === "function" ? options.onUpdate : null;
     this.onDelete = typeof options.onDelete === "function" ? options.onDelete : null;
     this.onChange = typeof options.onChange === "function" ? options.onChange : null;
+    this.onThemeChange = typeof options.onThemeChange === "function" ? options.onThemeChange : null;
+
+    // Optionale UI-Erweiterungen
+    this.help = options.help !== false;          // Hilfe-Button (standardmäßig an)
+    this.themeToggle = !!options.themeToggle;     // Hell-/Dunkel-Umschalter (opt-in)
+    this._theme = options.theme || "auto";        // "auto" | "light" | "dark"
+    this._scopeEls = [];                          // Elemente, die die Theme-Klasse tragen
 
     // UI-Texte: Standard + per-Instanz-Overrides (i18n), ohne globalen Zustand zu berühren
     this.texte = {};
@@ -147,11 +167,30 @@
       this._whoName.textContent = this.autor || T.platzhalterName;
       whoEl.appendChild(this._whoName);
       var actions = el("span", "kommentare-actions");
+
+      // Hilfe-Button (immer sichtbar, auch im readOnly-Modus)
+      var helpBtn = null;
+      if (this.help) {
+        helpBtn = el("button", "kommentare-btn kommentare-icon");
+        helpBtn.type = "button";
+        helpBtn.textContent = T.hilfeBtn;
+        helpBtn.setAttribute("aria-label", T.hilfeAria);
+        helpBtn.title = T.hilfeAria;
+        actions.appendChild(helpBtn);
+      }
+      // Theme-Umschalter (opt-in, immer sichtbar)
+      var themeBtn = null;
+      if (this.themeToggle) {
+        themeBtn = el("button", "kommentare-btn kommentare-icon");
+        themeBtn.type = "button";
+        actions.appendChild(themeBtn);
+      }
+
       var importBtn = el("button", "kommentare-btn");
       importBtn.type = "button";
       importBtn.textContent = T.ladenBtn;
       importBtn.title = T.ladenTitel;
-      var exportBtn = el("button", "kommentare-btn");
+      var exportBtn = el("button", "kommentare-btn kommentare-btn-primary");
       exportBtn.type = "button";
       exportBtn.textContent = T.herunterladenBtn;
       actions.appendChild(importBtn);
@@ -161,7 +200,13 @@
       toolbar.appendChild(whoEl);
       toolbar.appendChild(actions);
       toolbar.appendChild(countEl);
-      if (this.readOnly) actions.classList.add("kommentare-hidden");
+      // readOnly: nur Import/Export ausblenden – Hilfe/Theme bleiben nutzbar
+      if (this.readOnly) {
+        importBtn.classList.add("kommentare-hidden");
+        exportBtn.classList.add("kommentare-hidden");
+      }
+      this._helpBtn = helpBtn;
+      this._themeBtn = themeBtn;
 
       // Randspalte
       var margin = el("aside", "kommentare-margin kommentare-scope");
@@ -186,6 +231,37 @@
       row.appendChild(saveBtn);
       compose.appendChild(textarea);
       compose.appendChild(row);
+
+      // Hilfe-Panel (modal, an <body> gehängt) – erklärt die Bedienung
+      var help = null;
+      if (this.help) {
+        help = el("div", "kommentare-help kommentare-scope kommentare-hidden");
+        help.setAttribute("role", "dialog");
+        help.setAttribute("aria-modal", "true");
+        help.setAttribute("aria-label", T.hilfeTitel);
+        var box = el("div", "kommentare-help-box");
+        var helpClose = el("button", "kommentare-help-close");
+        helpClose.type = "button";
+        helpClose.textContent = "×";
+        helpClose.setAttribute("aria-label", T.hilfeSchliessen);
+        var helpH = el("h2", "kommentare-help-title"); helpH.textContent = T.hilfeTitel;
+        var helpList = el("ol", "kommentare-help-list");
+        (T.hilfeSchritte || []).forEach(function (s) {
+          var li = el("li");
+          var b = el("b"); b.textContent = s[0];
+          li.appendChild(b);
+          li.appendChild(document.createTextNode(" — " + s[1]));
+          helpList.appendChild(li);
+        });
+        var helpNote = el("p", "kommentare-help-note"); helpNote.textContent = T.hilfeHinweis;
+        box.appendChild(helpClose);
+        box.appendChild(helpH);
+        box.appendChild(helpList);
+        box.appendChild(helpNote);
+        help.appendChild(box);
+      }
+      this._helpEl = help;
+      this._helpClose = help ? helpClose : null;
 
       // verstecktes Datei-Feld für den Import
       var fileIn = el("input");
@@ -244,6 +320,13 @@
       document.body.appendChild(compose);
       document.body.appendChild(fileIn);
       this._insertedNodes.push(compose, fileIn);
+      if (help) { document.body.appendChild(help); this._insertedNodes.push(help); }
+
+      // Elemente sammeln, die die Theme-Klasse tragen, und Anfangs-Theme setzen
+      this._scopeEls = [this.container, toolbar, margin, compose];
+      if (help) this._scopeEls.push(help);
+      if (this._wrapper) this._scopeEls.push(this._wrapper);
+      this._applyTheme(this._theme);
     },
 
     /* ---- Ereignisse verdrahten (instanz-lokal gebunden) -------------- */
@@ -287,10 +370,72 @@
       this._importBtn.addEventListener("click", this._onImportClick);
       this._exportBtn.addEventListener("click", this._onExportClick);
       this._fileIn.addEventListener("change", this._onFileChange);
+
+      // Hilfe-Panel
+      if (this._helpBtn && this._helpEl) {
+        this._onHelpOpen = function () { self._openHelp(); };
+        this._onHelpClose = function () { self._closeHelp(); };
+        this._onHelpBackdrop = function (e) { if (e.target === self._helpEl) self._closeHelp(); };
+        this._onHelpKey = function (e) { if (e.key === "Escape") self._closeHelp(); };
+        this._helpBtn.addEventListener("click", this._onHelpOpen);
+        this._helpClose.addEventListener("click", this._onHelpClose);
+        this._helpEl.addEventListener("click", this._onHelpBackdrop);
+        this._helpEl.addEventListener("keydown", this._onHelpKey);
+      }
+
+      // Theme-Umschalter
+      if (this._themeBtn) {
+        this._onThemeToggle = function () {
+          self.setTheme(self._effectiveTheme() === "dark" ? "light" : "dark");
+        };
+        this._themeBtn.addEventListener("click", this._onThemeToggle);
+      }
     },
 
     _emitChange: function () {
       if (this.onChange) this.onChange(this.getAnnotations());
+    },
+
+    /* ---- Hilfe-Panel ------------------------------------------------- */
+    _openHelp: function () {
+      if (!this._helpEl) return;
+      this._helpEl.classList.remove("kommentare-hidden");
+      if (this._helpClose) this._helpClose.focus();
+    },
+    _closeHelp: function () {
+      if (!this._helpEl) return;
+      this._helpEl.classList.add("kommentare-hidden");
+      if (this._helpBtn) this._helpBtn.focus();
+    },
+
+    /* ---- Theme ------------------------------------------------------- */
+    _effectiveTheme: function () {
+      if (this._theme === "light" || this._theme === "dark") return this._theme;
+      return (global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").matches)
+        ? "dark" : "light";
+    },
+    _applyTheme: function (theme) {
+      this._theme = theme;
+      var cls = theme === "dark" ? "kommentare-dark" : (theme === "light" ? "kommentare-light" : null);
+      this._scopeEls.forEach(function (elx) {
+        if (!elx) return;
+        elx.classList.remove("kommentare-dark", "kommentare-light");
+        if (cls) elx.classList.add(cls);
+      });
+      this._updateThemeBtn();
+    },
+    _updateThemeBtn: function () {
+      if (!this._themeBtn) return;
+      var eff = this._effectiveTheme();
+      this._themeBtn.textContent = eff === "dark" ? "☀" : "☾";
+      this._themeBtn.setAttribute("aria-label", this.texte.themeAria);
+      this._themeBtn.title = this.texte.themeAria;
+      this._themeBtn.setAttribute("aria-pressed", eff === "dark" ? "true" : "false");
+    },
+    setTheme: function (theme) {
+      this._applyTheme(theme);
+      if (this.onThemeChange) this.onThemeChange(theme);
+      return this;
     },
 
     /* ---- Textoffsets im Container ----------------------------------- */
@@ -607,6 +752,7 @@
       var doc = {
         generator: "kommentar-tool",
         source: global.location ? global.location.href : "",
+        sourceTitle: (global.document && document.title) || "",
         author: this.autor,
         exported: new Date().toISOString(),
         annotations: mine.map(toW3C)
@@ -645,7 +791,8 @@
 
       // Markierungen entfernen, Ausgangs-DOM wiederherstellen
       this._unwrapMarks();
-      this.container.classList.remove("kommentare-scope", "kommentare-doc");
+      this.container.classList.remove("kommentare-scope", "kommentare-doc",
+        "kommentare-dark", "kommentare-light");
 
       if (this._wrapper) {
         // Container an ursprüngliche Position zurücksetzen

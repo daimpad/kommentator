@@ -154,16 +154,23 @@
   background:var(--k-surface);color:var(--k-ink);border-color:var(--k-line-strong)}
 .kommentare-btn:focus-visible{outline:2px solid var(--k-focus);outline-offset:2px}
 
-/* Primär-Aktionen (Export / Speichern) in Akzentfarbe */
-.kommentare-actions .kommentare-btn:last-child,
+/* Icon-Buttons (Hilfe, Theme) */
+.kommentare-btn.kommentare-icon{
+  padding:.42rem;min-width:2.05rem;justify-content:center;font-size:.95rem;line-height:1;
+}
+
+/* Primär-Aktionen (Export / Speichern) in Akzentfarbe.
+   Die Speichern-Schaltfläche im Popover ist das jeweils letzte Element. */
+.kommentare-btn-primary,
 .kommentare-compose-row .kommentare-btn:last-child{
   background:var(--k-accent);color:var(--k-accent-ink);border-color:var(--k-accent);
 }
-.kommentare-actions .kommentare-btn:last-child:hover,
+.kommentare-btn-primary:hover,
 .kommentare-compose-row .kommentare-btn:last-child:hover{
   filter:brightness(1.08);background:var(--k-accent);color:var(--k-accent-ink);border-color:var(--k-accent);
 }
-.kommentare-actions .kommentare-btn:last-child:disabled{filter:none;opacity:.45}
+.kommentare-btn-primary:disabled{filter:none;opacity:.45;
+  background:var(--k-surface);color:var(--k-ink);border-color:var(--k-line-strong)}
 
 /* ---- Markierungen im Text ---- */
 mark.kommentare-mark{
@@ -240,12 +247,48 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 }
 .kommentare-compose-row{display:flex;gap:.45rem;justify-content:flex-end;margin-top:.65rem}
 
+/* ---- Hilfe-Panel (modal) ---- */
+.kommentare-help{
+  position:fixed;inset:0;z-index:2147483001;
+  display:flex;align-items:center;justify-content:center;padding:1.2rem;
+  background:rgba(20,20,15,.45);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  font-family:var(--k-ui);
+}
+.kommentare-help-box{
+  position:relative;width:min(30rem,100%);max-height:85vh;overflow:auto;
+  background:var(--k-surface);color:var(--k-ink);
+  border:1px solid var(--k-line);border-radius:var(--k-radius);
+  box-shadow:var(--k-shadow-lg);padding:1.4rem 1.5rem;
+}
+.kommentare-help-title{
+  margin:0 0 1rem;font-size:1.15rem;font-weight:650;letter-spacing:-.01em;
+}
+.kommentare-help-list{margin:0 0 1rem;padding-left:1.2rem;display:grid;gap:.55rem}
+.kommentare-help-list li{line-height:1.5;font-size:.9rem}
+.kommentare-help-list b{font-weight:650}
+.kommentare-help-note{
+  margin:0;padding:.8rem .9rem;font-size:.82rem;line-height:1.5;color:var(--k-soft);
+  background:var(--k-accent-soft);border-radius:var(--k-radius-sm);
+}
+.kommentare-help-close{
+  position:absolute;top:.7rem;right:.7rem;
+  width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;
+  font-family:var(--k-ui);font-size:1.3rem;line-height:1;cursor:pointer;
+  background:transparent;color:var(--k-soft);
+  border:1px solid transparent;border-radius:var(--k-radius-pill);
+  transition:background .15s,color .15s;
+}
+.kommentare-help-close:hover{background:var(--k-accent-soft);color:var(--k-ink)}
+.kommentare-help-close:focus-visible{outline:2px solid var(--k-focus);outline-offset:2px}
+
 /* ---- Hilfsklassen ---- */
 .kommentare-hidden{display:none!important}
 
 /* Bewegung nur, wenn gewünscht */
 @media(prefers-reduced-motion:reduce){
-  .kommentare-btn,.kommentare-note,mark.kommentare-mark,.kommentare-compose textarea{
+  .kommentare-btn,.kommentare-note,mark.kommentare-mark,.kommentare-compose textarea,
+  .kommentare-help-close{
     transition:none!important;
   }
   .kommentare-btn:hover,.kommentare-note:hover{transform:none!important}

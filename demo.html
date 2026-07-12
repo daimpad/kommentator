@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kommentare — Einbindungsbeispiel</title>
 
-<!-- (1) Stylesheet im <head> einbinden -->
+<!-- (1) Stylesheet einbinden -->
 <link rel="stylesheet" href="kommentare.css">
 
 <!--
-  Diese Seite ist zugleich Kurz-Dokumentation. Nur Seiten-eigene Stile
-  stehen hier inline; das Kommentar-Werkzeug selbst kommt vollständig aus
-  kommentare.css + kommentare.js. Außer dem init-Aufruf ganz unten gibt es
-  kein weiteres Skript.
+  Diese Seite bindet nur kommentare.css + kommentare.js ein. Der Start-Code
+  liegt ausgelagert in demo.js, damit die Seite aufgeräumt bleibt. Erklärungen
+  zur Bedienung stecken im „?“-Button des Werkzeugs; Einbindung & Sicherheit
+  sind unten ausklappbar. Die inline-Stile gelten nur der Demo-Seite.
 -->
 <style>
   :root{
@@ -23,13 +23,21 @@
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --radius:14px; --radius-sm:9px; --pill:999px;
     --shadow:0 1px 2px rgba(20,20,15,.05),0 4px 14px rgba(20,20,15,.06);
+    --code-bg:#1b1b18; --code-ink:#f4f3ea;
   }
+  /* Dunkel nach Systemvorgabe … */
   @media(prefers-color-scheme:dark){
-    :root{
+    :root:not([data-theme="light"]){
       --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
       --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
-      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45); --code-bg:#0e0e0c;
     }
+  }
+  /* … oder explizit per Umschalter (data-theme am <html>) */
+  :root[data-theme="dark"]{
+    --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
+    --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45); --code-bg:#0e0e0c;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -58,9 +66,8 @@
     border-radius:var(--radius-sm);padding:.8rem 1rem;margin-bottom:1.75rem;box-shadow:var(--shadow)}
 
   pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;
-    background:#1b1b18;color:#f4f3ea;padding:1.1rem 1.2rem;overflow-x:auto;
-    border-radius:var(--radius);margin:0 0 1.5rem;box-shadow:var(--shadow)}
-  @media(prefers-color-scheme:dark){pre{background:#0e0e0c;border:1px solid var(--rule)}}
+    background:var(--code-bg);color:var(--code-ink);padding:1.1rem 1.2rem;overflow-x:auto;
+    border-radius:var(--radius-sm);margin:0}
 
   .setup{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;
     font-family:var(--ui);font-size:.85rem;color:var(--faint);margin-bottom:1.9rem;
@@ -75,6 +82,21 @@
     padding:.45rem .85rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
   .setup button:hover{filter:brightness(1.08);transform:translateY(-1px)}
   .setup button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Ausklappbare Entwickler-Doku, damit die Seite aufgeräumt bleibt */
+  details.box{border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
+    box-shadow:var(--shadow);margin:0 0 1rem;overflow:hidden}
+  details.box>summary{cursor:pointer;list-style:none;font-family:var(--ui);font-weight:600;
+    font-size:.9rem;padding:.85rem 1rem;color:var(--tint)}
+  details.box>summary::-webkit-details-marker{display:none}
+  details.box>summary::before{content:"▸";color:var(--accent);display:inline-block;
+    width:1.1em;transition:transform .15s}
+  details.box[open]>summary::before{transform:rotate(90deg)}
+  details.box .inner{padding:0 1rem 1rem}
+  details.box p{font-family:var(--ui);font-size:.88rem;color:var(--faint);margin:.2rem 0 1rem}
+  @media(prefers-reduced-motion:reduce){
+    .setup button,details.box>summary::before{transition:none}
+  }
 </style>
 </head>
 <body>
@@ -88,15 +110,13 @@
       Server, ohne Build, ohne externe Abhängigkeiten.</p>
     </header>
 
-    <p class="hint">Markiere im Text unten eine Stelle mit der Maus (oder per
-    Touch), um sie zu kommentieren. Klick auf eine Markierung oder eine Notiz
-    verbindet beide. Über die Aktionsleiste kannst du eigene Kommentare
-    herunterladen und die exportierten Dateien anderer wieder einlesen.</p>
+    <p class="hint">Markiere im Text eine Stelle, um sie zu kommentieren. Der
+    „?“-Button in der Aktionsleiste erklärt alle Funktionen; über das
+    ☾/☀-Symbol wechselst du zwischen Hell- und Dunkelmodus.</p>
 
     <!--
-      Kleine Setup-Zeile NUR für diese Demo: Autor:in wählen bzw. Datei-Import
-      antriggern. In einer echten Einbindung entfällt das — der Name wird
-      direkt an Kommentare.init({ autor: '…' }) übergeben.
+      Setup-Zeile NUR für diese Demo: Autor:in wählen. In einer echten
+      Einbindung entfällt das — der Name wird an Kommentare.init({ autor }) übergeben.
     -->
     <div class="setup">
       <label for="autor">Autor:in:</label>
@@ -104,50 +124,6 @@
       <button id="apply" type="button">Übernehmen</button>
     </div>
 
-    <h2>So bindest du es ein</h2>
-    <pre>&lt;!-- 1. Stylesheet in den &lt;head&gt; --&gt;
-&lt;link rel="stylesheet" href="kommentare.css"&gt;
-
-&lt;!-- 2. Zu kommentierenden Bereich auszeichnen --&gt;
-&lt;div data-kommentierbar&gt;
-  … dein Fließtext …
-&lt;/div&gt;
-
-&lt;!-- 3. Skript vor &lt;/body&gt; laden und starten --&gt;
-&lt;script src="kommentare.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  Kommentare.init({
-    container: '[data-kommentierbar]',
-    autor: 'Vorname Nachname'
-    // optional: margin, toolbar (Mount-Selektoren), readOnly,
-    //           texte (eigene UI-Texte / i18n),
-    //           onCreate(anno), onUpdate(anno), onDelete(id), onChange(annos)
-  });
-&lt;/script&gt;</pre>
-
-    <!--
-      ============================================================
-        SICHERHEIT / ZUGRIFFSSCHUTZ
-        Das Namensfeld dient nur der ZUORDNUNG von Kommentaren zu
-        einer Person – es ist KEIN Zugriffsschutz. Echten Schutz
-        („Name + Passwort") realisiert der Betreiber auf Server-
-        Ebene, z. B. per HTTP Basic Auth in einer .htaccess:
-
-            AuthType Basic
-            AuthName "Kommentierung"
-            AuthUserFile /pfad/zu/.htpasswd
-            Require valid-user
-
-        GETEILTE SICHTBARKEIT ist bewusst asynchron und ohne
-        Backend: Nutzer:innen exportieren ihre Kommentare, der
-        Betreiber sammelt die JSON-Dateien ein und liest sie über
-        „Kommentare laden" (instanz.import) gemeinsam wieder ein.
-        Es gibt keinen Server, kein localStorage – der Zustand
-        bleibt im Speicher der Sitzung.
-      ============================================================
-    -->
-
-    <h2>Beispieltext</h2>
     <!-- ================= INHALT HIER ERSETZEN ================= -->
     <div data-kommentierbar id="content">
       <h1>Beispieltext zum Ersetzen</h1>
@@ -166,29 +142,58 @@
       Randspalte, mit Namen der jeweiligen Autor:innen.</p>
     </div>
     <!-- ================= ENDE INHALT ================= -->
+
+    <h2>Für Entwickler:innen</h2>
+
+    <details class="box">
+      <summary>So bindest du es ein</summary>
+      <div class="inner">
+        <p>Drei Schritte — kein Build, keine Abhängigkeiten:</p>
+        <pre>&lt;!-- 1. Stylesheet in den &lt;head&gt; --&gt;
+&lt;link rel="stylesheet" href="kommentare.css"&gt;
+
+&lt;!-- 2. Zu kommentierenden Bereich auszeichnen --&gt;
+&lt;div data-kommentierbar&gt; … dein Fließtext … &lt;/div&gt;
+
+&lt;!-- 3. Skript vor &lt;/body&gt; laden und starten --&gt;
+&lt;script src="kommentare.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  Kommentare.init({
+    container: '[data-kommentierbar]',
+    autor: 'Vorname Nachname'
+    // optional: margin, toolbar, readOnly, texte (i18n),
+    //           help, themeToggle, theme ('auto'|'light'|'dark'),
+    //           onCreate, onUpdate, onDelete, onChange, onThemeChange
+  });
+&lt;/script&gt;</pre>
+      </div>
+    </details>
+
+    <details class="box">
+      <summary>Sicherheit &amp; geteilte Sichtbarkeit</summary>
+      <div class="inner">
+        <p>Das Namensfeld dient nur der <b>Zuordnung</b>, es ist <b>kein
+        Zugriffsschutz</b>. Echten Schutz („Name + Passwort“) realisiert der
+        Betrieb auf Server-Ebene, z. B. per HTTP Basic Auth in einer
+        <code>.htaccess</code>:</p>
+        <pre>AuthType Basic
+AuthName "Kommentierung"
+AuthUserFile /pfad/zu/.htpasswd
+Require valid-user</pre>
+        <p style="margin-top:1rem">Geteilte Sichtbarkeit ist bewusst asynchron
+        und ohne Backend: Nutzer:innen exportieren ihre Kommentare, der Betrieb
+        sammelt die JSON-Dateien ein und liest sie über „Kommentare laden“
+        gemeinsam wieder ein. Beim Export werden <code>source</code> (Seiten-URL)
+        und <code>sourceTitle</code> gespeichert, sodass erkennbar bleibt, zu
+        welcher Seite die Kommentare gehören. Kein Server, kein localStorage —
+        der Zustand bleibt im Speicher der Sitzung.</p>
+      </div>
+    </details>
   </article>
 </div>
 
-<!-- (3) Skript laden … -->
+<!-- (2) Werkzeug laden, (3) Start-Code ausgelagert in demo.js -->
 <script src="kommentare.js"></script>
-<!-- … und starten. Dies ist das EINZIGE Seiten-Skript neben dem Setup-Helfer. -->
-<script>
-  // Werkzeug initialisieren. Randspalte und Aktionsleiste werden automatisch
-  // erzeugt, weil keine margin-/toolbar-Mounts übergeben wurden.
-  var instanz = Kommentare.init({
-    container: '[data-kommentierbar]',
-    autor: document.getElementById('autor').value.trim() || 'Gast'
-  });
-
-  // --- reiner Demo-Komfort: Autor:in wechseln ohne Neuladen ---
-  // (In einer echten Einbindung nicht nötig – dort steht der Name fest.)
-  document.getElementById('apply').addEventListener('click', function () {
-    var name = document.getElementById('autor').value.trim() || 'Gast';
-    var annos = instanz.getAnnotations();          // bestehende Notizen sichern
-    instanz.destroy();                             // DOM-Ausgangszustand herstellen
-    instanz = Kommentare.init({ container: '[data-kommentierbar]', autor: name });
-    instanz.import(annos);                          // Notizen wieder einlesen
-  });
-</script>
+<script src="demo.js"></script>
 </body>
 </html>
