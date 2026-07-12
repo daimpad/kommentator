@@ -33,6 +33,7 @@
       help: true,                // „?“ mit Kurzanleitung (im Menü)
       themeToggle: true,         // ☾/☀ im Menü
       theme: currentTheme,
+      email: "kontakt@nozilla.de", // „Per E-Mail senden“ öffnet Entwurf an diese Adresse
       onThemeChange: applyPageTheme // Demo-Seite mitfärben
     });
   }

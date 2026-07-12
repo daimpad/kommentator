@@ -86,6 +86,23 @@ check("W3C: TextQuoteSelector", w3c.target.selector.some((s) => s.type === "Text
 check("W3C: TextPositionSelector", w3c.target.selector.some((s) => s.type === "TextPositionSelector"));
 check("Export: sourceTitle vorhanden", typeof parsed.sourceTitle === "string" && parsed.sourceTitle.length > 0);
 
+// --- Download-Formate (Markdown), Drucken, E-Mail ---
+const md = await page.evaluate(() => instanz.exportMarkdown());
+check("Markdown: Kopf & Quelle", md.startsWith("# Notizen") && md.includes("Quelle:"));
+check("Markdown: Wortlaut enthalten", md.includes("Zeichenposition im Text"));
+check("Markdown: Kommentartext enthalten", md.includes("Erster Kommentar von Gast."));
+
+const dlBtns = await page.evaluate(() =>
+  [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")].map((b) => b.textContent));
+check("Download: JSON-Button", dlBtns.includes("Kommentare (JSON)"));
+check("Download: Markdown-Button", dlBtns.includes("Notizen (Markdown)"));
+check("Download: Drucken/PDF-Button", dlBtns.includes("Als PDF / drucken"));
+check("E-Mail: Button vorhanden (email gesetzt)", dlBtns.includes("Per E-Mail senden"));
+
+const mailto = await page.evaluate(() => instanz._mailtoHref());
+check("E-Mail: mailto an kontakt@nozilla.de", mailto.startsWith("mailto:kontakt@nozilla.de?subject="));
+check("E-Mail: Body enthält den Kommentar", decodeURIComponent(mailto).includes("Erster Kommentar von Gast."));
+
 // --- Hilfe-Button öffnet/schließt das Panel ---
 const helpInitiallyHidden = await page.evaluate(() =>
   document.querySelector(".kommentare-help").classList.contains("kommentare-hidden"));
