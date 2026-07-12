@@ -39,6 +39,8 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `toolbarMode` | String | `'bar'` (Balken oben, Standard) oder `'floating'` (Button unten rechts, der ein Menü öffnet) |
 | `resizable` | Boolean | ziehbare Randspalte im Auto-Layout (Standard: `true`) |
 | `notesWidth` | String | Startbreite der Randspalte, z. B. `'22rem'` |
+| `email` | String | Empfänger für „Per E-Mail senden“; leer = Button aus |
+| `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
 | `themeToggle` | Boolean | Hell-/Dunkel-Umschalter (Standard: `false`) |
 | `theme` | String | Anfangs-Theme: `'auto'` (Standard), `'light'`, `'dark'` |
@@ -54,6 +56,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | Methode | Ergebnis |
 |---|---|
 | `instanz.export()` | JSON-String (nur eigene Kommentare des aktuellen Autors) |
+| `instanz.exportMarkdown()` | lesbare „Nur Notizen“-Fassung (Markdown) mit URL, Wortlaut, Kommentar, Autor:in, Datum |
 | `instanz.import(jsonOrArray)` | führt Annotationen zusammen, **dedupliziert nach `id`**; gibt die Anzahl neu hinzugefügter zurück |
 | `instanz.getAnnotations()` | Array (W3C-nahe Annotationen) |
 | `instanz.setTheme('auto'\|'light'\|'dark')` | schaltet das Theme programmatisch |
@@ -129,6 +132,32 @@ Ausgangstext bleibt zwischen den Runden unverändert.
 `source` ist die volle Seiten-URL, `sourceTitle` der Seitentitel zum
 Export-Zeitpunkt — so ist beim Einsammeln erkennbar, zu welcher Seite eine
 Datei gehört.
+
+---
+
+## Download-Optionen & Versand
+
+Im Menü stehen unter „Herunterladen“:
+
+| Option | Ergebnis |
+|---|---|
+| **Kommentare (JSON)** | vollständiger W3C-Export (`export()`) — zum Wieder-Einlesen/Zusammenführen |
+| **Notizen (Markdown)** | lesbare `.md`-Datei (`exportMarkdown()`) mit URL, Wortlaut, Kommentar, Autor:in, Datum |
+| **Als PDF / drucken** | `window.print()`; ein `@media print`-Stil blendet Bedienelemente aus und setzt Dokument + Notizen einspaltig — im Systemdialog „Als PDF speichern“ |
+| **Per E-Mail senden** | nur wenn `email` gesetzt: lädt die JSON-Datei herunter und öffnet einen `mailto:`-Entwurf an die Adresse |
+
+**Bewusste Grenzen (technisch unvermeidbar):**
+
+- **`mailto:` kann keine Datei anhängen** (RFC 6068 kennt keinen Anhang-Parameter).
+  Der Button lädt daher die Datei herunter und öffnet einen vorbefüllten
+  Entwurf; kleine Notizmengen stehen inline im Text, sonst ein Hinweis zum
+  manuellen Anhängen. Ein automatischer Anhang-Versand ginge nur über
+  `navigator.share({files})` (v. a. mobil) oder ein Backend — Letzteres ist
+  ausgeschlossen.
+- **Der „Screenshot“ ist ein Druck-PDF**, kein Raster-PNG. Ein pixelgenaues PNG
+  beliebiger Seiten ist clientseitig ohne externe Bibliothek nicht zuverlässig
+  (Canvas-Tainting bei Cross-Origin-Bildern, fehlende externe Fonts). Der
+  Druckweg ist dafür robust, vektoriell und erfasst die volle Seite.
 
 ---
 

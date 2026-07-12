@@ -179,6 +179,16 @@
   padding:.42rem;min-width:2.05rem;justify-content:center;font-size:.95rem;line-height:1;
 }
 
+/* Download-Gruppe (JSON / Markdown / Drucken / E-Mail) */
+.kommentare-downloads{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+/* Gruppenüberschrift nur im Floating-Menü zeigen (im Balken-Modus stört sie) */
+.kommentare-downloads-head{display:none}
+.kommentare-panel .kommentare-downloads{flex-direction:column;align-items:stretch}
+.kommentare-panel .kommentare-downloads-head{
+  display:block;font-family:var(--k-ui);font-size:.66rem;font-weight:650;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--k-soft);margin-top:.2rem;
+}
+
 /* Primär-Aktionen (Export / Speichern) in Akzentfarbe.
    Die Speichern-Schaltfläche im Popover ist das jeweils letzte Element. */
 .kommentare-btn-primary,
@@ -342,4 +352,21 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
     transition:none!important;
   }
   .kommentare-btn:hover,.kommentare-note:hover{transform:none!important}
+}
+
+/* Druck / „Als PDF speichern": Bedienelemente aus, Dokument + Notizen sauber */
+@media print{
+  .kommentare-fab,.kommentare-panel,.kommentare-compose,.kommentare-help,
+  .kommentare-gutter,.kommentare-toolbar,.kommentare-note-actions{display:none!important}
+  .kommentare-body,.kommentare-body.kommentare-body-resizable{
+    grid-template-columns:1fr!important;gap:1.2rem!important;
+  }
+  .kommentare-margin{
+    position:static!important;max-height:none!important;overflow:visible!important;
+  }
+  .kommentare-note{break-inside:avoid;box-shadow:none!important}
+  mark.kommentare-mark{
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    background:var(--k-mark)!important;color:var(--k-mark-ink)!important;box-shadow:none!important;
+  }
 }

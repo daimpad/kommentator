@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.3.0
+ * Version:           1.4.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -27,7 +27,7 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.3.0');
+define('KOMMENTARE_VERSION', '1.4.0');
 
 /**
  * Selektor des zu kommentierenden Containers.
@@ -98,6 +98,8 @@ function kommentare_enqueue_assets() {
         // 'bar' (Balken oben) oder 'floating' (Button unten rechts)
         'toolbarMode' => (string) apply_filters('kommentare_toolbar_mode', 'floating'),
         'resizable'   => (bool) apply_filters('kommentare_resizable', true),
+        // E-Mail-Empfänger für „Per E-Mail senden" (leer = Button aus)
+        'email'       => (string) apply_filters('kommentare_email', ''),
     );
 
     // Weitere init-Optionen (z. B. eigene UI-Texte) frei ergänzbar:

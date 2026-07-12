@@ -77,6 +77,9 @@ Alle Optionen stehen in der [Technischen Dokumentation](TECHNISCHE_DOKUMENTATION
 | **Bearbeiten / Löschen** | Bei den eigenen Notizen über „bearbeiten“ / „löschen“ |
 | **Notizspalte breiter ziehen** | Am Griff zwischen Text und Notizen ziehen |
 | **Alle Funktionen** | Button **☰ unten rechts** öffnet das Menü |
+| **Herunterladen** | „Kommentare (JSON)“ oder „Notizen (Markdown)“ im Menü |
+| **Als PDF / drucken** | öffnet den Druckdialog → „Als PDF speichern“ (Bedienelemente werden ausgeblendet) |
+| **Per E-Mail senden** | lädt die Datei herunter und öffnet einen E-Mail-Entwurf (falls konfiguriert) |
 | **Hilfe** | „?“ im Menü zeigt die Kurzanleitung |
 | **Hell/Dunkel** | ☾/☀ im Menü |
 

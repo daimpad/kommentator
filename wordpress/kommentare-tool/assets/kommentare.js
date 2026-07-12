@@ -41,6 +41,17 @@
     ladenBtn:           "Kommentare laden",
     ladenTitel:         "Exportierte Kommentar-Dateien einlesen und zusammenführen",
     herunterladenBtn:   "Meine Kommentare herunterladen",
+    herunterladenJson:  "Kommentare (JSON)",
+    herunterladenMd:    "Notizen (Markdown)",
+    druckenBtn:         "Als PDF / drucken",
+    emailBtn:           "Per E-Mail senden",
+    emailBetreff:       "Kommentare",
+    emailIntro:         "Anbei meine Kommentare",
+    emailAnhangHinweis: "(Bitte die soeben heruntergeladene Datei anhängen.)",
+    downloadKopf:       "Herunterladen",
+    keineNotizen:       "Keine eigenen Kommentare.",
+    quelleLabel:        "Quelle:",
+    exportiertLabel:    "Exportiert:",
     titel:              "Kommentar-Tool",
     autorLabel:         "Autor:in:",
     platzhalterName:    "—",
@@ -135,6 +146,9 @@
     // Randspalte im Auto-Layout per Ziehgriff breiter/schmaler ziehbar
     this.resizable = options.resizable !== false;
     this._notesWidth = options.notesWidth || null; // z. B. "22rem" oder "320px"
+    // E-Mail-Empfänger (leer = kein „Per E-Mail senden“-Knopf) + optionaler Betreff
+    this.email = options.email || "";
+    this.emailSubject = options.emailSubject || "";
 
     // UI-Texte: Standard + per-Instanz-Overrides (i18n), ohne globalen Zustand zu berühren
     this.texte = {};
@@ -199,23 +213,45 @@
       importBtn.type = "button";
       importBtn.textContent = T.ladenBtn;
       importBtn.title = T.ladenTitel;
-      var exportBtn = el("button", "kommentare-btn kommentare-btn-primary");
-      exportBtn.type = "button";
-      exportBtn.textContent = T.herunterladenBtn;
       actions.appendChild(importBtn);
-      actions.appendChild(exportBtn);
+
+      // Download-Gruppe: JSON (Primär), Markdown, Drucken/PDF, optional E-Mail
+      var dl = el("span", "kommentare-downloads");
+      var dlHead = el("span", "kommentare-downloads-head"); dlHead.textContent = T.downloadKopf;
+      var exportBtn = el("button", "kommentare-btn kommentare-btn-primary");
+      exportBtn.type = "button"; exportBtn.textContent = T.herunterladenJson;
+      var mdBtn = el("button", "kommentare-btn");
+      mdBtn.type = "button"; mdBtn.textContent = T.herunterladenMd;
+      var printBtn = el("button", "kommentare-btn");
+      printBtn.type = "button"; printBtn.textContent = T.druckenBtn;
+      dl.appendChild(dlHead);
+      dl.appendChild(exportBtn);
+      dl.appendChild(mdBtn);
+      dl.appendChild(printBtn);
+      var emailBtn = null;
+      if (this.email) {
+        emailBtn = el("button", "kommentare-btn");
+        emailBtn.type = "button"; emailBtn.textContent = T.emailBtn;
+        dl.appendChild(emailBtn);
+      }
+      actions.appendChild(dl);
+
       var countEl = el("span", "kommentare-count");
       toolbar.appendChild(titleEl);
       toolbar.appendChild(whoEl);
       toolbar.appendChild(actions);
       toolbar.appendChild(countEl);
-      // readOnly: nur Import/Export ausblenden – Hilfe/Theme bleiben nutzbar
+      // readOnly: eigene Downloads (JSON/MD/E-Mail) ausblenden — Laden/Drucken bleiben
       if (this.readOnly) {
-        importBtn.classList.add("kommentare-hidden");
         exportBtn.classList.add("kommentare-hidden");
+        mdBtn.classList.add("kommentare-hidden");
+        if (emailBtn) emailBtn.classList.add("kommentare-hidden");
       }
       this._helpBtn = helpBtn;
       this._themeBtn = themeBtn;
+      this._mdBtn = mdBtn;
+      this._printBtn = printBtn;
+      this._emailBtn = emailBtn;
 
       // Randspalte
       var margin = el("aside", "kommentare-margin kommentare-scope");
@@ -412,10 +448,16 @@
       this._composeText.addEventListener("keydown", this._onComposeKey);
 
       this._onImportClick = function () { self._fileIn.click(); };
-      this._onExportClick = function () { self._download(); };
+      this._onExportClick = function () { self._downloadJSON(); };
+      this._onMdClick = function () { self._downloadMarkdown(); };
+      this._onPrintClick = function () { self._print(); };
+      this._onEmailClick = function () { self._email(); };
       this._onFileChange = function (e) { self._readFiles(e); };
       this._importBtn.addEventListener("click", this._onImportClick);
       this._exportBtn.addEventListener("click", this._onExportClick);
+      this._mdBtn.addEventListener("click", this._onMdClick);
+      this._printBtn.addEventListener("click", this._onPrintClick);
+      if (this._emailBtn) this._emailBtn.addEventListener("click", this._onEmailClick);
       this._fileIn.addEventListener("change", this._onFileChange);
 
       // Hilfe-Panel
@@ -806,7 +848,11 @@
       var n = this.annos.size;
       this._countEl.textContent = n + (n === 1 ? T.einKommentar : T.mehrereKommentare);
       var mineCount = list.filter(function (a) { return a.author === self.autor; }).length;
-      this._exportBtn.disabled = mineCount === 0;
+      // Downloads eigener Kommentare nur bei vorhandenen eigenen Kommentaren
+      var noneMine = mineCount === 0;
+      this._exportBtn.disabled = noneMine;
+      if (this._mdBtn) this._mdBtn.disabled = noneMine;
+      if (this._emailBtn) this._emailBtn.disabled = noneMine;
     },
 
     _focusAnno: function (id) {
@@ -836,16 +882,49 @@
     },
 
     /* ---- Export / Import (W3C-nah) ---------------------------------- */
-    _download: function () {
-      var json = this.export();
-      var blob = new Blob([json], { type: "application/json" });
+    _fileBase: function () {
+      var safe = (this.autor || "kommentare").replace(/[^\w\-]+/g, "_").toLowerCase();
+      return "kommentare_" + safe + "_" + new Date().toISOString().slice(0, 10);
+    },
+    _saveBlob: function (filename, text, mime) {
+      var blob = new Blob([text], { type: mime });
       var url = URL.createObjectURL(blob);
       var a = el("a");
-      var safe = (this.autor || "kommentare").replace(/[^\w\-]+/g, "_").toLowerCase();
       a.href = url;
-      a.download = "kommentare_" + safe + "_" + new Date().toISOString().slice(0, 10) + ".json";
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
+    },
+    _downloadJSON: function () {
+      this._saveBlob(this._fileBase() + ".json", this.export(), "application/json");
+    },
+    _downloadMarkdown: function () {
+      this._saveBlob(this._fileBase() + ".md", this.exportMarkdown(), "text/markdown;charset=utf-8");
+    },
+    // „Screenshot“ der Seite mit Notizen: Systemdruck -> „Als PDF speichern“.
+    // Der Druck-Stil (@media print) blendet Bedienelemente aus.
+    _print: function () {
+      if (global.print) global.print();
+    },
+    _mailtoHref: function () {
+      var T = this.texte;
+      var subject = (this.emailSubject || T.emailBetreff);
+      var title = (global.document && document.title) || "";
+      if (title) subject += " – " + title;
+      var src = global.location ? global.location.href : "";
+      var intro = T.emailIntro + (src ? " (" + src + ")" : "") + ".\n\n";
+      var md = this.exportMarkdown();
+      var body = (intro + md).length <= 1500 ? intro + md : intro + T.emailAnhangHinweis;
+      return "mailto:" + this.email +
+        "?subject=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(body);
+    },
+    // Lädt die Datei herunter (zum Anhängen) und öffnet einen E-Mail-Entwurf.
+    // Ein echter Datei-Anhang ist per mailto nicht möglich (RFC 6068).
+    _email: function () {
+      if (!this.email) return;
+      this._downloadJSON();
+      if (global.location) global.location.href = this._mailtoHref();
     },
 
     _readFiles: function (e) {
@@ -875,6 +954,34 @@
         annotations: mine.map(toW3C)
       };
       return JSON.stringify(doc, null, 2);
+    },
+
+    // Lesbare „Nur Notizen“-Fassung der eigenen Kommentare (Markdown) mit
+    // Seiten-URL/-Titel und je Notiz Wortlaut, Kommentar, Autor:in und Datum.
+    exportMarkdown: function () {
+      var self = this, T = this.texte;
+      var mine = Array.from(this.annos.values())
+        .filter(function (a) { return a.author === self.autor; })
+        .sort(function (a, b) { return a.pos.start - b.pos.start; });
+      var title = (global.document && document.title) || "";
+      var out = [];
+      out.push("# " + T.notizenKopf + (title ? " – " + title : ""));
+      out.push("");
+      if (global.location) out.push(T.quelleLabel + " " + global.location.href);
+      out.push(T.autorLabel + " " + (this.autor || T.platzhalterName));
+      out.push(T.exportiertLabel + " " + new Date().toISOString());
+      out.push("");
+      if (!mine.length) out.push("_" + T.keineNotizen + "_");
+      mine.forEach(function (a, i) {
+        out.push("## " + (i + 1) + ". „" + a.quote + "“");
+        out.push("");
+        out.push(a.body);
+        out.push("");
+        out.push("— " + (a.author || T.platzhalterName) +
+          (a.created ? ", " + a.created.slice(0, 10) : ""));
+        out.push("");
+      });
+      return out.join("\n");
     },
 
     import: function (jsonOrArray) {
