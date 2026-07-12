@@ -48,4 +48,21 @@
     if (e.key === "Enter") enter();
   });
   if (nameInput) nameInput.focus();
+
+  // Info-Modal (Einbindung & Sicherheit) – ersetzt die früheren Accordions
+  var infoModal = document.getElementById("infomodal");
+  var infoOpen = document.getElementById("info-open");
+  var infoClose = document.getElementById("info-close");
+  function showInfo(show) {
+    if (!infoModal) return;
+    infoModal.hidden = !show;
+    if (show && infoClose) infoClose.focus();
+    else if (infoOpen) infoOpen.focus();
+  }
+  if (infoOpen) infoOpen.addEventListener("click", function () { showInfo(true); });
+  if (infoClose) infoClose.addEventListener("click", function () { showInfo(false); });
+  if (infoModal) {
+    infoModal.addEventListener("click", function (e) { if (e.target === infoModal) showInfo(false); });
+    infoModal.addEventListener("keydown", function (e) { if (e.key === "Escape") showInfo(false); });
+  }
 })();

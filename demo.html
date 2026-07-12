@@ -70,20 +70,35 @@
   .gate-box button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .gate-fine{font-size:.75rem;color:var(--faint);line-height:1.5;margin:1rem 0 0}
 
-  /* dezente Entwickler-Doku am Seitenende */
-  .devdocs{max-width:70ch;margin:3rem auto 0;font-family:var(--ui)}
-  details.box{border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);
-    box-shadow:var(--shadow);margin:0 0 .8rem;overflow:hidden}
-  details.box>summary{cursor:pointer;list-style:none;font-weight:600;font-size:.88rem;
-    padding:.8rem 1rem;color:var(--tint)}
-  details.box>summary::-webkit-details-marker{display:none}
-  details.box>summary::before{content:"▸";color:var(--accent);display:inline-block;width:1.1em}
-  details.box[open]>summary::before{content:"▾"}
-  details.box .inner{padding:0 1rem 1rem}
-  details.box p{font-size:.86rem;color:var(--faint);margin:.2rem 0 .9rem}
+  /* dezenter Footer-Link, der das Info-Modal öffnet */
+  .pagefoot{max-width:70ch;margin:3rem auto 0;text-align:center}
+  .infolink{font-family:var(--ui);font-size:.85rem;font-weight:600;color:var(--accent);
+    background:none;border:none;cursor:pointer;padding:.45rem .8rem;border-radius:var(--pill);
+    transition:background .15s}
+  .infolink:hover{background:var(--accent-soft)}
+  .infolink:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Info-Modal (Einbindung & Sicherheit) */
+  .modal{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;
+    padding:1.2rem;background:rgba(20,20,15,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .modal[hidden]{display:none}
+  .modal-box{position:relative;width:min(34rem,100%);max-height:85vh;overflow:auto;background:var(--surface);
+    color:var(--tint);border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-lg);
+    padding:1.6rem;font-family:var(--ui)}
+  .modal-box h2{font-family:var(--ui);font-size:1.3rem;font-weight:700;letter-spacing:-.01em;margin:0 0 1rem}
+  .modal-box h3{font-family:var(--ui);font-size:1rem;font-weight:650;margin:1.4rem 0 .5rem}
+  .modal-box p{font-size:.9rem;line-height:1.55;color:var(--faint);margin:.2rem 0 .9rem}
+  .modal-box code{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);
+    color:var(--accent);padding:.1em .35em;border-radius:5px}
+  .modal-close{position:absolute;top:.7rem;right:.7rem;width:2rem;height:2rem;display:flex;
+    align-items:center;justify-content:center;font-size:1.35rem;line-height:1;cursor:pointer;
+    background:transparent;color:var(--faint);border:1px solid transparent;border-radius:var(--pill);
+    transition:background .15s,color .15s}
+  .modal-close:hover{background:var(--accent-soft);color:var(--tint)}
+  .modal-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   pre{font-family:var(--mono);font-size:.78rem;line-height:1.6;background:var(--code-bg);
     color:var(--code-ink);padding:1rem 1.1rem;overflow-x:auto;border-radius:var(--radius-sm);margin:0}
-  @media(prefers-reduced-motion:reduce){.gate-box button{transition:none}}
+  @media(prefers-reduced-motion:reduce){.gate-box button,.infolink,.modal-close{transition:none}}
 </style>
 </head>
 <body>
@@ -125,12 +140,21 @@
   </div>
   <!-- ================= ENDE INHALT ================= -->
 
-  <div class="devdocs">
-    <details class="box">
-      <summary>Für Entwickler:innen — so bindest du es ein</summary>
-      <div class="inner">
-        <p>Drei Schritte, kein Build, keine Abhängigkeiten:</p>
-        <pre>&lt;link rel="stylesheet" href="kommentare.css"&gt;
+  <footer class="pagefoot">
+    <button class="infolink" id="info-open" type="button" aria-haspopup="dialog">
+      ℹ Einbindung &amp; Sicherheit</button>
+  </footer>
+</div>
+
+<!-- Info-Modal (ersetzt die früheren Accordions) -->
+<div class="modal" id="infomodal" role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
+  <div class="modal-box">
+    <button class="modal-close" id="info-close" type="button" aria-label="Schließen">×</button>
+    <h2 id="info-title">Einbindung &amp; Sicherheit</h2>
+
+    <h3>So bindest du es ein</h3>
+    <p>Drei Schritte, kein Build, keine Abhängigkeiten:</p>
+    <pre>&lt;link rel="stylesheet" href="kommentare.css"&gt;
 &lt;div data-kommentierbar&gt; … dein Fließtext … &lt;/div&gt;
 &lt;script src="kommentare.js"&gt;&lt;/script&gt;
 &lt;script&gt;
@@ -143,19 +167,17 @@
     //         onCreate/onUpdate/onDelete/onChange/onThemeChange
   });
 &lt;/script&gt;</pre>
-      </div>
-    </details>
-    <details class="box">
-      <summary>Sicherheit &amp; geteilte Sichtbarkeit</summary>
-      <div class="inner">
-        <p>Das Namensfeld dient nur der <b>Zuordnung</b>, es ist <b>kein
-        Zugriffsschutz</b>. Echten Schutz regelt der Betrieb serverseitig, z. B.
-        per HTTP Basic Auth (<code>.htaccess</code>). Geteilte Sichtbarkeit ist
-        asynchron und ohne Backend: exportieren → einsammeln → über „Kommentare
-        laden“ importieren. Beim Export werden <code>source</code> (URL) und
-        <code>sourceTitle</code> gespeichert.</p>
-      </div>
-    </details>
+
+    <h3>Sicherheit &amp; geteilte Sichtbarkeit</h3>
+    <p>Das Namensfeld dient nur der <b>Zuordnung</b>, es ist <b>kein
+    Zugriffsschutz</b>. Echten Schutz regelt der Betrieb serverseitig, z. B.
+    per HTTP Basic Auth (<code>.htaccess</code>). Geteilte Sichtbarkeit ist
+    asynchron und ohne Backend: exportieren → einsammeln → über „Kommentare
+    laden“ importieren. Beim Export werden <code>source</code> (URL) und
+    <code>sourceTitle</code> gespeichert.</p>
+
+    <p>Mehr Details in der <b>Technischen Dokumentation</b> und im
+    <b>Tutorial</b> des Projekts (siehe README).</p>
   </div>
 </div>
 
