@@ -38,6 +38,9 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
   Bilder anklicken und kommentieren (W3C `CssSelector`).
 - 📍 **Punkte anheften** — an eine genaue Stelle einen Pin setzen
   (Element-relativ verankert, übersteht Reload).
+- 🪟 **Ganze Seite oder Randspalte** — Notizen als in-flow-Spalte *oder*
+  schwebend (`notes: 'floating'`), dann ist die komplette Seite inkl.
+  Header/Footer kommentierbar, ohne das Layout umzubauen.
 - 🧷 **Präzise Verankerung** — W3C-Web-Annotation-nah; Kommentare finden ihre
   Stelle beim Wiedereinlesen zuverlässig wieder.
 - 🔀 **Zusammenführen ohne Backend** — Rückmeldungen exportieren, einsammeln,

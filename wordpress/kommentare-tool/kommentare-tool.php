@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.6.0
+ * Version:           1.7.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -27,21 +27,23 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.6.0');
+define('KOMMENTARE_VERSION', '1.7.0');
 
 /**
  * Selektor des zu kommentierenden Containers.
- * Standard: der Content-Bereich klassischer/Block-Themes.
+ * Standard: die ganze Seite (<body>) – so lassen sich Header, Inhalt UND
+ * Footer kommentieren. Zusammen mit schwebenden Notizen (siehe unten) wird die
+ * Seite dabei NICHT umgebaut.
  *
- * Anpassen per Filter, z. B. in der functions.php:
+ * Auf den reinen Inhaltsbereich einschränken per Filter:
  *   add_filter('kommentare_container_selector', function () {
- *       return '.wp-block-post-content';
+ *       return '.entry-content'; // oder '.wp-block-post-content'
  *   });
  *
  * @return string
  */
 function kommentare_container_selector() {
-    return apply_filters('kommentare_container_selector', '.entry-content');
+    return apply_filters('kommentare_container_selector', 'body');
 }
 
 /**
@@ -97,6 +99,9 @@ function kommentare_enqueue_assets() {
         'themeToggle' => (bool) apply_filters('kommentare_theme_toggle', true),
         // 'bar' (Balken oben) oder 'floating' (Button unten rechts)
         'toolbarMode' => (string) apply_filters('kommentare_toolbar_mode', 'floating'),
+        // 'inline' (Randspalte) oder 'floating' (Notizen schweben, Seite bleibt
+        // unverändert – nötig, um die ganze Seite/Header/Footer zu kommentieren)
+        'notes'       => (string) apply_filters('kommentare_notes', 'floating'),
         'resizable'   => (bool) apply_filters('kommentare_resizable', true),
         // E-Mail-Empfänger für „Per E-Mail senden" (leer = Button aus)
         'email'       => (string) apply_filters('kommentare_email', ''),

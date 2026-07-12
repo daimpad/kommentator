@@ -34,37 +34,64 @@ Fertig. Über den Button **☰ unten rechts** erreichst du alle Funktionen.
 
 ## 2. In eine eigene Seite einbinden
 
-Drei Schritte in deiner HTML-Datei:
+**Wohin kommt was?**
+
+- Das **`<link>`** gehört in den **`<head>`**.
+- Das **`<script src="kommentare.js">`** und der **`init`-Aufruf** gehören ganz
+  ans **Ende**, direkt **vor `</body>`** (nach dem Inhalt) — nicht in den `<head>`
+  und nicht vor den zu kommentierenden Bereich.
+
+### Variante A — ganze Seite (empfohlen, inkl. Header & Footer)
+
+Nichts am Markup ändern; die Seite bleibt unverändert, die Notizen schweben:
 
 ```html
-<!-- 1. Stylesheet in den <head> -->
-<link rel="stylesheet" href="kommentare.css">
+<head>
+  <link rel="stylesheet" href="kommentare.css">
+</head>
+<body>
+  … deine komplette Seite (Header, Inhalt, Footer) …
 
-<!-- 2. Den zu kommentierenden Bereich auszeichnen -->
+  <!-- ganz unten, vor </body> -->
+  <script src="kommentare.js"></script>
+  <script>
+    Kommentare.init({
+      container: 'body',      // die ganze Seite ist kommentierbar
+      notes: 'floating',      // Notizen schweben (Seite wird NICHT umgebaut)
+      autor: 'Vorname Nachname'
+    });
+  </script>
+</body>
+```
+
+> Wenn früher „das Feld zum Kommentieren oberhalb der Seite" erschien, lag das
+> an der in-flow-Variante (`notes: 'inline'`), die eine Randspalte/Leiste in die
+> Seite einbaut. Mit **`notes: 'floating'`** passiert das nicht — nichts wird in
+> den Seitenfluss eingefügt.
+
+### Variante B — nur ein Inhaltsbereich (Randspalte neben dem Text)
+
+```html
 <div data-kommentierbar>
   … dein Fließtext …
 </div>
-
-<!-- 3. Skript vor </body> laden und starten -->
 <script src="kommentare.js"></script>
 <script>
   Kommentare.init({
     container: '[data-kommentierbar]',
     autor: 'Vorname Nachname',
-    toolbarMode: 'floating', // Button unten rechts (statt Balken oben)
+    toolbarMode: 'floating',
     themeToggle: true
   });
 </script>
 ```
 
-`kommentare.css` und `kommentare.js` müssen neben deiner HTML-Datei liegen (oder
-passe die Pfade an). Randspalte und Menü werden automatisch erzeugt.
+Hier erzeugt das Werkzeug Randspalte und Menü selbst. Der Container sollte dann
+**nur den Fließtext** umfassen (keine Sidebar), sonst verschieben sich die
+gespeicherten Zeichenpositionen.
 
-> **Tipp:** Der Container sollte **nur den Fließtext** umfassen — keine Sidebar,
-> keine „Ähnliche Beiträge“. Sonst verschieben sich die gespeicherten
-> Zeichenpositionen.
-
-Alle Optionen stehen in der [Technischen Dokumentation](TECHNISCHE_DOKUMENTATION.md).
+`kommentare.css` und `kommentare.js` müssen erreichbar sein (Pfade ggf. anpassen).
+Alle Optionen: [Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md).
 
 ---
 

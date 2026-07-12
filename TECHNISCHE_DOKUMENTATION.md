@@ -37,6 +37,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `toolbar` | Selektor \| Element | optionaler Mount für die Aktionsleiste |
 | `readOnly` | Boolean | nur ansehen, keine neuen Kommentare |
 | `toolbarMode` | String | `'bar'` (Balken oben, Standard) oder `'floating'` (Button unten rechts, der ein Menü öffnet) |
+| `notes` | String | `'inline'` (Randspalte, Standard) oder `'floating'` (Notizen schweben im Panel, Seite bleibt unverändert) |
 | `resizable` | Boolean | ziehbare Randspalte im Auto-Layout (Standard: `true`) |
 | `notesWidth` | String | Startbreite der Randspalte, z. B. `'22rem'` |
 | `elements` | Boolean | beliebige Web-Elemente (Boxen/Bilder) kommentierbar (Standard: `true`) |
@@ -212,6 +213,32 @@ Im Menü stehen unter „Herunterladen“:
   Druckweg ist dafür robust, vektoriell und erfasst die volle Seite.
 
 ---
+
+## Layout: in-flow vs. schwebend (ganze Seite kommentieren)
+
+Standard (`notes: 'inline'`): das Werkzeug **umschließt den Container** und baut
+eine zweispaltige Ansicht (Dokument + Randspalte). Das setzt einen abgegrenzten
+Inhaltscontainer voraus.
+
+Mit **`notes: 'floating'`** wird die Seite **nicht umgebaut**: der Container
+bleibt unverändert an Ort und Stelle, Aktionsleiste **und** Notizen liegen in
+einem schwebenden Panel hinter dem Button unten rechts (wie die Overlays). So
+lässt sich ein beliebig großer Container kommentieren — bis hin zur **ganzen
+Seite inklusive Header und Footer**:
+
+```html
+<script>
+  Kommentare.init({ container: 'body', notes: 'floating', autor: '…' });
+</script>
+```
+
+Damit `container: 'body'` sauber funktioniert, ignoriert die Textauswahl
+automatisch `<script>`/`<style>` sowie alle werkzeugeigenen Bedienelemente
+(Panel, Overlays, Popover; markiert mit `data-kommentare-ui`).
+
+> Die in-flow-Variante (`inline`) reflowt die Seite und eignet sich für einen
+> Artikel-/Content-Container; die schwebende Variante (`floating`) lässt das
+> Seitenlayout unangetastet und ist für ganze Seiten gedacht.
 
 ## Gestaltung / Theme
 

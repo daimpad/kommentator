@@ -363,6 +363,15 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 .kommentare-panel .kommentare-actions{margin-left:0;display:flex;flex-wrap:wrap;gap:.4rem}
 .kommentare-panel .kommentare-count{align-self:flex-start}
 
+/* Schwebende Notizen: Panel breiter + scrollbar, Randspalte darin „entankert" */
+.kommentare-panel-notes{width:min(24rem,92vw);max-height:min(34rem,78vh);overflow:auto}
+.kommentare-panel .kommentare-margin{
+  position:static!important;max-height:none!important;overflow:visible!important;
+  margin-top:.5rem;padding:.4rem;
+  border-top:1px solid var(--k-line);
+}
+.kommentare-panel .kommentare-margin-head{margin-top:.4rem}
+
 /* ---- Hilfe-Panel (modal) ---- */
 .kommentare-help{
   position:fixed;inset:0;z-index:2147483001;

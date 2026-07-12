@@ -360,6 +360,55 @@ check("Punkt: nach Reload+Import wiederhergestellt", (await page.locator(".komme
 const ptText = (await page.locator(".kommentare-note-point .kommentare-note-body").first().textContent()).trim();
 check("Punkt: Kommentartext wiederhergestellt", ptText === "Genau hier.");
 
+// --- Floating-Notizen: ganze Fläche (inkl. „Header") kommentierbar, kein Reflow ---
+await load();
+const fn = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "fullpage";
+  host.innerHTML = '<header id="fp-head"><h2>Kopfbereich Titel</h2></header>' +
+    "<main><p>Inhalt eins zwei drei.</p></main>" +
+    '<footer id="fp-foot"><small>Fusszeile Text</small></footer>';
+  document.body.appendChild(host);
+  const parentBefore = host.parentNode;
+  window.__fn = window.Kommentare.init({ container: "#fullpage", notes: "floating", autor: "FN" });
+  return {
+    notReflowed: host.parentNode === parentBefore && parentBefore.nodeName === "BODY",
+    panelHasNotes: !!document.querySelector(".kommentare-panel-notes"),
+    marginInPanel: !!document.querySelector(".kommentare-panel-notes .kommentare-margin"),
+    docClass: host.classList.contains("kommentare-doc")
+  };
+});
+check("Floating-Notizen: Seite nicht umgebaut (kein Wrapper)", fn.notReflowed === true);
+check("Floating-Notizen: Notizen im schwebenden Panel", fn.panelHasNotes && fn.marginInPanel);
+check("Floating-Notizen: kein kommentare-doc auf großem Container", fn.docClass === false);
+
+// „Header"-Text kommentieren (ganze Seite kommentierbar)
+const fnMarks = await page.evaluate(() => {
+  const h = document.querySelector("#fp-head h2"), tn = h.firstChild;
+  const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  h.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  window.__fn._composeText.value = "Kopf prüfen.";
+  window.__fn._saveComment();
+  return {
+    headMarks: document.querySelectorAll("#fp-head mark.kommentare-mark").length,
+    panelNotes: document.querySelectorAll(".kommentare-panel-notes .kommentare-note").length
+  };
+});
+check("Floating-Notizen: Header-Text kommentierbar", fnMarks.headMarks === 1);
+check("Floating-Notizen: Notiz im Panel gelistet", fnMarks.panelNotes === 1);
+
+const fnDestroy = await page.evaluate(() => {
+  window.__fn.destroy();
+  return {
+    panelGone: !document.querySelector(".kommentare-panel-notes"),
+    hostStays: !!document.getElementById("fullpage"),
+    noMarks: document.querySelectorAll("#fullpage mark.kommentare-mark").length === 0
+  };
+});
+check("Floating-Notizen: destroy() entfernt Panel, Container bleibt",
+  fnDestroy.panelGone && fnDestroy.hostStays && fnDestroy.noMarks);
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");
