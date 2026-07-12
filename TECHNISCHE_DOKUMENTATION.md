@@ -117,7 +117,7 @@ Ausgangstext bleibt zwischen den Runden unverändert.
 
 ### Element-Kommentare (Boxen/Bilder statt Text)
 
-Mit `elements: true` (Standard) erscheint im Menü der Knopf **„Element
+Mit `elements: true` (Standard) erscheint über den Notizen der Knopf **„Element
 kommentieren"**. Im Element-Modus folgt ein Umriss dem Element unter dem Zeiger;
 ein Klick wählt es (Host-Links/Buttons werden dabei abgefangen) und öffnet
 dasselbe Kommentar-Popover. Gesetzte Element-Kommentare erscheinen als farbige

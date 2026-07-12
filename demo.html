@@ -57,8 +57,10 @@
     letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
     padding:.3rem .7rem;border-radius:var(--pill);margin-bottom:1rem}
   .gate-eyebrow::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
-  .gate-box h2{font-family:var(--ui);font-size:1.3rem;font-weight:700;letter-spacing:-.01em;margin:0 0 .6rem}
-  .gate-hint{font-size:.92rem;line-height:1.55;color:var(--faint);margin:0 0 1.3rem}
+  .gate-box h2{font-family:var(--ui);font-size:1.3rem;font-weight:700;letter-spacing:-.01em;margin:0 0 1rem}
+  .gate-steps{list-style:none;margin:0 0 1.3rem;padding:0;display:grid;gap:.7rem}
+  .gate-step{display:flex;align-items:center;gap:.7rem;font-size:.92rem;line-height:1.35;color:var(--tint)}
+  .gate-step svg{flex:0 0 auto;width:1.4rem;height:1.4rem;color:var(--accent)}
   .gate-box label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.4rem}
   .gate-box input{width:100%;font-family:var(--ui);font-size:1.05rem;padding:.6rem .7rem;color:var(--tint);
     border:1px solid var(--rule-strong);border-radius:var(--radius-sm);background:var(--page);margin-bottom:1rem}
@@ -68,7 +70,6 @@
     padding:.6rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
   .gate-box button:hover{filter:brightness(1.08);transform:translateY(-1px)}
   .gate-box button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  .gate-fine{font-size:.75rem;color:var(--faint);line-height:1.5;margin:1rem 0 0}
 
   @media(prefers-reduced-motion:reduce){.gate-box button{transition:none}}
 </style>
@@ -80,15 +81,23 @@
   <div class="gate-box">
     <span class="gate-eyebrow">Kommentator</span>
     <h2 id="gate-title">Willkommen</h2>
-    <p class="gate-hint">Markiere im Text eine Stelle, um sie zu kommentieren.
-    Über den Button&nbsp;<b>☰ unten rechts</b> erreichst du alle Funktionen —
-    Kommentare laden, herunterladen, Hilfe und den&nbsp;☾/☀ Hell-/Dunkelmodus.
-    Die Notizspalte rechts lässt sich am Griff breiter ziehen.</p>
+    <ul class="gate-steps">
+      <li class="gate-step">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+        <span>Markiere im Text eine Stelle, um sie zu kommentieren.</span>
+      </li>
+      <li class="gate-step">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Über „Element kommentieren" eine Box oder ein Bild anklicken.</span>
+      </li>
+      <li class="gate-step">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16"/><path d="m7 9-3 3 3 3"/><path d="m17 9 3 3-3 3"/></svg>
+        <span>Die Notizspalte am Griff schmaler oder breiter ziehen.</span>
+      </li>
+    </ul>
     <label for="gate-name">Dein Name</label>
     <input id="gate-name" type="text" value="Gast" autocomplete="name" placeholder="z. B. Vorname Nachname">
     <button id="gate-go" type="button">Übernehmen</button>
-    <p class="gate-fine">Das Namensfeld ordnet Kommentare deinem Namen zu — es ist
-    <b>kein</b> Zugriffsschutz. Kommentare bleiben im Browser, bis du sie exportierst.</p>
   </div>
 </div>
 

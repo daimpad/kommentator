@@ -73,7 +73,7 @@ Alle Optionen stehen in der [Technischen Dokumentation](TECHNISCHE_DOKUMENTATION
 | Aktion | So geht’s |
 |---|---|
 | **Markieren & kommentieren** | Textstelle mit Maus/Touch markieren → Text eingeben → Speichern |
-| **Element kommentieren** | im Menü „Element kommentieren“ → Box/Bild anklicken → Text eingeben |
+| **Element kommentieren** | Knopf „Element kommentieren“ über den Notizen → Box/Bild anklicken → Text eingeben |
 | **Notiz ↔ Markierung** | Klick auf eine Markierung, ein Element-Badge oder eine Notiz hebt beide hervor |
 | **Bearbeiten / Löschen** | Bei den eigenen Notizen über „bearbeiten“ / „löschen“ |
 | **Notizspalte breiter ziehen** | Am Griff zwischen Text und Notizen ziehen |
