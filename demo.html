@@ -15,43 +15,83 @@
   kein weiteres Skript.
 -->
 <style>
-  :root{ --page:#fbfbf9; --tint:#14140f; --faint:#55554d; --rule:#d9d9cf;
+  :root{
+    --page:#f7f6f3; --surface:#fff; --tint:#1b1b18; --faint:#6c6c63;
+    --rule:#e8e6df; --rule-strong:#d6d4cb; --accent:#4f46e5; --accent-soft:#eef0ff;
+    --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --serif:"Iowan Old Style",Palatino,Georgia,serif; }
+    --radius:14px; --radius-sm:9px; --pill:999px;
+    --shadow:0 1px 2px rgba(20,20,15,.05),0 4px 14px rgba(20,20,15,.06);
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
+      --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
+    }
+  }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{background:var(--page);color:var(--tint);font-family:var(--serif);line-height:1.6}
-  .wrap{max-width:1180px;margin:0 auto;padding:2rem 1.1rem 6rem}
+  body{background:var(--page);color:var(--tint);font-family:var(--serif);line-height:1.65;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:2.5rem 1.2rem 6rem}
   .doc{font-size:1.075rem}
-  .doc h1{font-size:1.6rem;line-height:1.2;margin:0 0 1.2rem}
-  .doc h2{font-size:1.15rem;margin:2rem 0 .8rem;font-family:var(--mono);
-    text-transform:uppercase;letter-spacing:.03em}
+
+  .hero{margin:0 0 2rem}
+  .eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--ui);
+    font-size:.74rem;font-weight:650;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:.3rem .7rem;
+    border-radius:var(--pill);margin-bottom:1rem}
+  .eyebrow::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
+  .doc h1{font-family:var(--ui);font-size:clamp(1.9rem,4vw,2.6rem);line-height:1.1;
+    letter-spacing:-.02em;font-weight:700;margin:0 0 .8rem}
+  .lede{font-size:1.15rem;color:var(--faint);max-width:60ch;margin:0}
+  .doc h2{font-family:var(--ui);font-size:1.15rem;font-weight:650;letter-spacing:-.01em;
+    margin:2.5rem 0 .9rem}
   .doc p{margin:0 0 1.15rem}
-  .doc code{font-family:var(--mono);font-size:.85em;background:#efeee6;padding:.05em .3em}
-  .hint{font-family:var(--mono);font-size:.74rem;color:var(--faint);
-    border-left:2px solid var(--rule);padding-left:.7rem;margin-bottom:1.6rem}
-  pre{font-family:var(--mono);font-size:.78rem;line-height:1.5;background:#14140f;color:#f4f3ea;
-    padding:1rem 1.1rem;overflow-x:auto;margin:0 0 1.5rem}
-  .setup{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;
-    font-family:var(--mono);font-size:.78rem;color:var(--faint);margin-bottom:1.6rem}
-  .setup input{font-family:var(--serif);font-size:1rem;padding:.4rem .55rem;
-    border:1.3px solid var(--tint);background:#fff}
-  .setup button{font-family:var(--mono);font-size:.76rem;background:var(--page);
-    color:var(--tint);border:1.3px solid var(--tint);padding:.34rem .7rem;cursor:pointer}
-  .setup button:hover{background:var(--tint);color:var(--page)}
-  .setup button:focus-visible,.setup input:focus-visible{outline:2px solid #ffcf1a;outline-offset:2px}
+  .doc code{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);
+    color:var(--accent);padding:.1em .35em;border-radius:5px}
+
+  .hint{font-family:var(--ui);font-size:.85rem;color:var(--faint);
+    background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);
+    border-radius:var(--radius-sm);padding:.8rem 1rem;margin-bottom:1.75rem;box-shadow:var(--shadow)}
+
+  pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;
+    background:#1b1b18;color:#f4f3ea;padding:1.1rem 1.2rem;overflow-x:auto;
+    border-radius:var(--radius);margin:0 0 1.5rem;box-shadow:var(--shadow)}
+  @media(prefers-color-scheme:dark){pre{background:#0e0e0c;border:1px solid var(--rule)}}
+
+  .setup{display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;
+    font-family:var(--ui);font-size:.85rem;color:var(--faint);margin-bottom:1.9rem;
+    background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
+    padding:.7rem .85rem;box-shadow:var(--shadow)}
+  .setup label{font-weight:600;color:var(--tint)}
+  .setup input{font-family:var(--ui);font-size:.95rem;padding:.45rem .65rem;color:var(--tint);
+    border:1px solid var(--rule-strong);border-radius:var(--radius-sm);background:var(--page)}
+  .setup input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .setup button{font-family:var(--ui);font-size:.83rem;font-weight:550;cursor:pointer;
+    background:var(--accent);color:#fff;border:1px solid var(--accent);
+    padding:.45rem .85rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
+  .setup button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .setup button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <article class="doc">
-    <h1>Kommentare — einbindbares Werkzeug</h1>
+    <header class="hero">
+      <span class="eyebrow">Kommentar-Werkzeug</span>
+      <h1>Textstellen markieren &amp; kommentieren</h1>
+      <p class="lede">Einbindbar in jede Seite — als statische Dateien, ohne
+      Server, ohne Build, ohne externe Abhängigkeiten.</p>
+    </header>
 
-    <p class="hint">Markiere im Text unten eine Stelle mit der Maus, um sie zu
-    kommentieren. Klick auf eine Markierung oder eine Notiz verbindet beide.
-    Über die Aktionsleiste kannst du eigene Kommentare herunterladen und die
-    exportierten Dateien anderer wieder einlesen.</p>
+    <p class="hint">Markiere im Text unten eine Stelle mit der Maus (oder per
+    Touch), um sie zu kommentieren. Klick auf eine Markierung oder eine Notiz
+    verbindet beide. Über die Aktionsleiste kannst du eigene Kommentare
+    herunterladen und die exportierten Dateien anderer wieder einlesen.</p>
 
     <!--
       Kleine Setup-Zeile NUR für diese Demo: Autor:in wählen bzw. Datei-Import
