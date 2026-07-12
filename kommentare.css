@@ -218,6 +218,10 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 /* ---- Element-Kommentare (Boxen/Container statt Text) ---- */
 .kommentare-picking{cursor:crosshair}
 .kommentare-picking *{cursor:crosshair!important}
+/* „Element kommentieren“ sitzt über den Notizen in der Randspalte */
+.kommentare-margin>.kommentare-el-toggle{
+  width:100%;justify-content:center;margin-bottom:.9rem;
+}
 .kommentare-el-toggle.is-active{
   background:var(--k-accent);color:var(--k-accent-ink);border-color:var(--k-accent);
 }

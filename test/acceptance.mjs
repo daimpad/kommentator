@@ -299,9 +299,11 @@ check("Modal: verschwindet nach Übernehmen", gateAfter.hidden === true && gateA
 
 // --- Element-Kommentare (beliebige Web-Elemente statt nur Text) ---
 await load();
-const elToggle = await page.evaluate(() =>
-  [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")].some((b) => b.textContent === "Element kommentieren"));
-check("Element: Umschalt-Button vorhanden", elToggle === true);
+const elToggle = await page.evaluate(() => {
+  const b = document.querySelector(".kommentare-margin .kommentare-el-toggle");
+  return !!b && b.textContent === "Element kommentieren";
+});
+check("Element: Umschalt-Button über den Notizen", elToggle === true);
 
 // erstes <p> im Container per API auswählen und kommentieren
 await page.evaluate(() => window.instanz._selectElement(document.querySelector("#content p")));

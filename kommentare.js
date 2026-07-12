@@ -216,7 +216,9 @@
         themeBtn.type = "button";
         actions.appendChild(themeBtn);
       }
-      // Element-Auswahl umschalten (opt-in via elements, Standard an)
+      // Element-Auswahl umschalten (opt-in via elements, Standard an).
+      // Wird NICHT in die Aktionsleiste gehängt, sondern über die Notizen
+      // gesetzt (siehe Randspalte weiter unten).
       var elementBtn = null;
       if (this.elements && !this.readOnly) {
         elementBtn = el("button", "kommentare-btn kommentare-el-toggle");
@@ -224,7 +226,6 @@
         elementBtn.textContent = T.elementBtn;
         elementBtn.setAttribute("aria-pressed", "false");
         elementBtn.setAttribute("aria-label", T.elementAria);
-        actions.appendChild(elementBtn);
       }
       this._elementBtn = elementBtn;
 
@@ -274,6 +275,8 @@
 
       // Randspalte
       var margin = el("aside", "kommentare-margin kommentare-scope");
+      // „Element kommentieren“ über den Notizen
+      if (elementBtn) margin.appendChild(elementBtn);
       var head = el("div", "kommentare-margin-head"); head.textContent = T.notizenKopf;
       var notes = el("div", "kommentare-notes");
       notes.setAttribute("role", "list");
