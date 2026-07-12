@@ -1,0 +1,13 @@
+{
+  "name": "kommentator",
+  "version": "1.0.0",
+  "description": "Einbindbares, statisches Kommentar-Werkzeug: Textstellen markieren, kommentieren, als JSON exportieren und zusammenführen. Kein Build, keine Abhängigkeiten.",
+  "license": "SEE LICENSE IN README",
+  "scripts": {
+    "test": "node test/acceptance.mjs",
+    "sync-plugin-assets": "cp kommentare.css kommentare.js wordpress/kommentare-tool/assets/"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0"
+  }
+}
