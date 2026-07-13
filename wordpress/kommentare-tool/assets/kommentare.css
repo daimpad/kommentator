@@ -423,7 +423,15 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 @media print{
   .kommentare-fab,.kommentare-panel,.kommentare-compose,.kommentare-help,
   .kommentare-gutter,.kommentare-toolbar,.kommentare-note-actions,
-  .kommentare-hover{display:none!important}
+  .kommentare-mode-toggle,.kommentare-hover{display:none!important}
+  /* Schwebende Notizen: das Panel enthält die Notizliste — im Druck als
+     normaler Block ans Seitenende setzen (nur die Werkzeugleiste bleibt aus) */
+  .kommentare-panel.kommentare-panel-notes{
+    display:block!important;position:static!important;
+    width:auto!important;max-height:none!important;overflow:visible!important;
+    border:none!important;box-shadow:none!important;padding:0!important;
+  }
+  .kommentare-panel-notes .kommentare-toolbar{display:none!important}
   /* Element-Markierungen im Druck ohne Fläche, nur farbiger Rahmen; Punkte als Pin */
   .kommentare-el-mark{background:transparent!important;box-shadow:none!important;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}

@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -69,6 +69,14 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.7.1 =
+* Fix: „Notizen (Markdown)“/„Per E-Mail senden“ stürzten mit Element-/
+  Punkt-Kommentaren ab; Markdown zeigt jetzt passende Überschriften je Art.
+* Fix: Pins/Element-Rahmen saßen falsch, wenn das Theme body positioniert
+  (position:relative/margin).
+* Fix: „Als PDF / drucken“ druckt im Floating-Notizen-Modus jetzt auch die
+  Notizliste mit.
 
 = 1.7.0 =
 * Ganze Seite kommentierbar: Container-Standard jetzt `body` (Header + Inhalt +
