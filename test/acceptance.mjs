@@ -409,6 +409,80 @@ const fnDestroy = await page.evaluate(() => {
 check("Floating-Notizen: destroy() entfernt Panel, Container bleibt",
   fnDestroy.panelGone && fnDestroy.hostStays && fnDestroy.noMarks);
 
+// --- Regression: exportMarkdown/E-Mail mit gemischten Kommentar-Arten ---
+await load();
+await selectAndComment("Platzhaltertext", "Textnotiz.");
+await page.evaluate(() => {
+  window.instanz._selectElement(document.querySelector("#content p"));
+  document.querySelector(".kommentare-compose textarea").value = "Elementnotiz.";
+  window.instanz._saveComment();
+  const p2 = document.querySelectorAll("#content p")[1];
+  const r = p2.getBoundingClientRect();
+  window.instanz._placePoint(p2, r.left + r.width * 0.4, r.top + r.height * 0.5);
+  document.querySelector(".kommentare-compose textarea").value = "Punktnotiz.";
+  window.instanz._saveComment();
+});
+const mixed = await page.evaluate(() => {
+  const out = {};
+  try { out.md = window.instanz.exportMarkdown(); out.crash = false; }
+  catch (e) { out.crash = true; }
+  try { window.instanz._mailtoHref(); out.mailCrash = false; }
+  catch (e) { out.mailCrash = true; }
+  return out;
+});
+check("Markdown: kein Absturz bei gemischten Arten", mixed.crash === false && mixed.mailCrash === false);
+check("Markdown: kein 'undefined' im Text", mixed.md && !mixed.md.includes("undefined"));
+check("Markdown: Element- und Punkt-Überschriften", mixed.md.includes("⬚") && mixed.md.includes("📍"));
+
+// --- Regression: Overlay-Position bei positioniertem/verschobenem <body> ---
+const offsetRes = await page.evaluate(() => {
+  document.body.style.position = "relative";
+  document.body.style.margin = "40px";
+  const p2 = document.querySelectorAll("#content p")[2];
+  const r = p2.getBoundingClientRect();
+  window.instanz._placePoint(p2, r.left + r.width * 0.5, r.top + r.height * 0.5);
+  document.querySelector(".kommentare-compose textarea").value = "Versatztest.";
+  window.instanz._saveComment();
+  const pins = document.querySelectorAll(".kommentare-point-mark");
+  const pin = pins[pins.length - 1];
+  const pr = pin.getBoundingClientRect();
+  const rr = p2.getBoundingClientRect();
+  const res = {
+    dx: Math.abs((pr.left + pr.width / 2) - (rr.left + rr.width * 0.5)),
+    dy: Math.abs((pr.top + pr.height / 2) - (rr.top + rr.height * 0.5))
+  };
+  document.body.style.position = "";
+  document.body.style.margin = "";
+  return res;
+});
+check("Overlay: Pin sitzt trotz body{position:relative;margin} korrekt (±2px)",
+  offsetRes.dx <= 2 && offsetRes.dy <= 2);
+
+// --- Regression: Druck im Floating-Notizen-Modus zeigt die Notizen ---
+const printPage = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+await printPage.goto(demoUrl);
+await printPage.fill("#gate-name", "Gast");
+await printPage.click("#gate-go");
+await printPage.evaluate(() => {
+  window.instanz.destroy();
+  window.instanz = window.Kommentare.init({ container: "#content", notes: "floating", autor: "Gast" });
+  window.instanz.import({ annotations: [{ id: "pr-1", type: "Annotation", creator: { name: "Gast" },
+    body: [{ type: "TextualBody", value: "Drucknotiz" }],
+    target: { selector: [{ type: "TextQuoteSelector", exact: "Platzhaltertext" }] } }] });
+});
+await printPage.emulateMedia({ media: "print" });
+const printRes = await printPage.evaluate(() => {
+  const margin = document.querySelector(".kommentare-panel-notes .kommentare-margin");
+  const toolbar = document.querySelector(".kommentare-panel-notes .kommentare-toolbar");
+  return {
+    notizenSichtbar: margin ? margin.offsetParent !== null : false,
+    toolbarAus: toolbar ? getComputedStyle(toolbar).display === "none" : true
+  };
+});
+await printPage.close();
+check("Druck (floating notes): Notizen sichtbar", printRes.notizenSichtbar === true);
+check("Druck (floating notes): Werkzeugleiste ausgeblendet", printRes.toolbarAus === true);
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");

@@ -658,30 +658,49 @@
       if (!this._mode) this._hideHover();
       else if (this._panelEl) this._toggleMenu(false); // Menü schließen, Sicht frei
     },
+    // Ursprung des Bezugssystems der absolut positionierten Overlays.
+    // Die Overlay-Ebene liegt bei top:0/left:0 ihres containing blocks; ihre
+    // Viewport-Position ist daher der korrekte Nullpunkt — auch wenn <body>
+    // selbst positioniert/verschoben ist (position:relative, margin, …).
+    _overlayBase: function () {
+      // Nur die Overlay-Ebene bleibt fest bei 0/0 (der Hover-Kasten wird bewegt).
+      if (!this._overlayEl) return { x: -window.scrollX, y: -window.scrollY };
+      var r = this._overlayEl.getBoundingClientRect();
+      return { x: r.left, y: r.top };
+    },
     _showHover: function (elm) {
       if (!this._hoverEl) return;
       var r = elm.getBoundingClientRect();
+      var base = this._overlayBase();
       var h = this._hoverEl;
       h.classList.remove("kommentare-hidden", "kommentare-hover-point");
-      h.style.left = (r.left + window.scrollX) + "px";
-      h.style.top = (r.top + window.scrollY) + "px";
+      h.style.left = (r.left - base.x) + "px";
+      h.style.top = (r.top - base.y) + "px";
       h.style.width = r.width + "px";
       h.style.height = r.height + "px";
     },
     _showHoverPoint: function (x, y) {
       if (!this._hoverEl) return;
+      var base = this._overlayBase();
       var h = this._hoverEl;
       h.classList.remove("kommentare-hidden");
       h.classList.add("kommentare-hover-point");
       h.style.width = ""; h.style.height = "";
-      h.style.left = (x + window.scrollX) + "px";
-      h.style.top = (y + window.scrollY) + "px";
+      h.style.left = (x - base.x) + "px";
+      h.style.top = (y - base.y) + "px";
     },
     _hideHover: function () {
       if (this._hoverEl) this._hoverEl.classList.add("kommentare-hidden");
     },
     _fingerprint: function (elm) {
-      return (elm.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60);
+      var t = (elm.textContent || "").replace(/\s+/g, " ").trim();
+      // Textlose Elemente (Bilder, Icons): src/alt als Kennung, sonst findet
+      // der Fallback nur das ERSTE gleichartige Element.
+      if (!t && elm.getAttribute) {
+        t = elm.getAttribute("src") || elm.getAttribute("alt") || "";
+        t = t.slice(-60); // Dateiname/Ende der URL ist der aussagekräftige Teil
+      }
+      return t.slice(0, 60);
     },
     // Container-relativer, robuster CSS-Pfad (id als Abkürzung, sonst nth-of-type).
     _cssPathOf: function (elm) {
@@ -785,6 +804,7 @@
     _positionOverlays: function () {
       if (!this._overlayEl) return;
       var self = this;
+      var base = this._overlayBase();
       this._overlayEl.querySelectorAll(".kommentare-el-mark,.kommentare-point-mark").forEach(function (marker) {
         var a = self.annos.get(marker.dataset.annoId);
         var elx = a ? self._resolveElement(a) : null;
@@ -792,11 +812,11 @@
         var r = elx.getBoundingClientRect();
         marker.style.display = "";
         if (marker.dataset.kind === "point") {
-          marker.style.left = (r.left + (a.rx || 0) * r.width + window.scrollX) + "px";
-          marker.style.top = (r.top + (a.ry || 0) * r.height + window.scrollY) + "px";
+          marker.style.left = (r.left + (a.rx || 0) * r.width - base.x) + "px";
+          marker.style.top = (r.top + (a.ry || 0) * r.height - base.y) + "px";
         } else {
-          marker.style.left = (r.left + window.scrollX) + "px";
-          marker.style.top = (r.top + window.scrollY) + "px";
+          marker.style.left = (r.left - base.x) + "px";
+          marker.style.top = (r.top - base.y) + "px";
           marker.style.width = r.width + "px";
           marker.style.height = r.height + "px";
         }
@@ -851,10 +871,12 @@
         self._gutterEl.classList.remove("is-dragging");
         document.removeEventListener("pointermove", move);
         document.removeEventListener("pointerup", up);
+        document.removeEventListener("pointercancel", up);
         try { self._gutterEl.releasePointerCapture(e.pointerId); } catch (_) {}
       };
       document.addEventListener("pointermove", move);
       document.addEventListener("pointerup", up);
+      document.addEventListener("pointercancel", up);
     },
 
     _emitChange: function () {
@@ -1019,12 +1041,20 @@
     },
 
     /* ---- Auswahl -> Kommentar --------------------------------------- */
+    // Liegt der Knoten in werkzeugeigener UI (Panel/Popover/Overlay …)?
+    _inToolUi: function (node) {
+      var e = node && (node.nodeType === 1 ? node : node.parentNode);
+      return !!(e && e.closest && e.closest("[data-kommentare-ui]"));
+    },
     _handleSelection: function () {
       if (this.readOnly || this._mode) return;
       var sel = window.getSelection();
       if (!sel.rangeCount || sel.isCollapsed) return;
       var r = sel.getRangeAt(0);
       if (!this.container.contains(r.commonAncestorContainer)) return;
+      // Auswahl, die in der Werkzeug-UI beginnt/endet (z. B. Notiz-Panel bei
+      // container=body), würde stille Offset-Fehler erzeugen -> abbrechen.
+      if (this._inToolUi(r.startContainer) || this._inToolUi(r.endContainer)) return;
       var start = this._globalOffset(r.startContainer, r.startOffset);
       var end = this._globalOffset(r.endContainer, r.endOffset);
       if (start > end) { var tmp = start; start = end; end = tmp; }
@@ -1276,7 +1306,11 @@
       var a = el("a");
       a.href = url;
       a.download = filename;
+      // Anker muss fuer manche Browser (aelteres Firefox) im Dokument haengen
+      a.style.display = "none";
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     },
     _downloadJSON: function () {
@@ -1346,7 +1380,8 @@
       var self = this, T = this.texte;
       var mine = Array.from(this.annos.values())
         .filter(function (a) { return a.author === self.autor; })
-        .sort(function (a, b) { return a.pos.start - b.pos.start; });
+        // visuelle Reihenfolge; Element-/Punkt-Annos haben kein pos
+        .sort(function (a, b) { return self._annoTop(a) - self._annoTop(b); });
       var title = (global.document && document.title) || "";
       var out = [];
       out.push("# " + T.notizenKopf + (title ? " – " + title : ""));
@@ -1357,7 +1392,16 @@
       out.push("");
       if (!mine.length) out.push("_" + T.keineNotizen + "_");
       mine.forEach(function (a, i) {
-        out.push("## " + (i + 1) + ". „" + a.quote + "“");
+        var head;
+        if (a.kind === "element") {
+          head = "⬚ " + (a.tag || T.elementLabel) +
+            (a.fingerprint ? ": „" + a.fingerprint + "“" : "");
+        } else if (a.kind === "point") {
+          head = "📍 " + T.punktLabel + (a.tag ? " · " + a.tag : "");
+        } else {
+          head = "„" + a.quote + "“";
+        }
+        out.push("## " + (i + 1) + ". " + head);
         out.push("");
         out.push(a.body);
         out.push("");
