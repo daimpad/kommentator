@@ -483,6 +483,62 @@ await printPage.close();
 check("Druck (floating notes): Notizen sichtbar", printRes.notizenSichtbar === true);
 check("Druck (floating notes): Werkzeugleiste ausgeblendet", printRes.toolbarAus === true);
 
+// --- exclude-Option: Bereiche vom Kommentieren ausnehmen ---
+await load();
+const excl = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "exclhost";
+  host.innerHTML = '<div id="adminbar"><p>Adminleiste Text</p></div>' +
+    "<main><p>Normaler Inhalt eins zwei.</p></main>";
+  document.body.appendChild(host);
+  const inst = window.Kommentare.init({
+    container: "#exclhost", notes: "floating", autor: "EX", exclude: "#adminbar"
+  });
+  // 1) Text im ausgeschlossenen Bereich: Auswahl wird verworfen
+  const tn = host.querySelector("#adminbar p").firstChild;
+  const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  const composeOffen = !document.querySelector(".kommentare-compose").classList.contains("kommentare-hidden");
+  // 2) Element im ausgeschlossenen Bereich ist kein gültiges Ziel
+  const zielAdmin = inst._elementTargetFrom(host.querySelector("#adminbar p"));
+  const zielInhalt = inst._elementTargetFrom(host.querySelector("main p"));
+  // 3) Ausgeschlossener Text fehlt im Volltext (Offsets bleiben stabil)
+  const volltext = inst._plainText();
+  inst.destroy(); host.remove();
+  return { composeOffen, adminAusgeschlossen: zielAdmin === null, inhaltOk: !!zielInhalt,
+           textAusgeschlossen: !volltext.includes("Adminleiste") };
+});
+check("exclude: Auswahl im ausgeschlossenen Bereich verworfen", excl.composeOffen === false);
+check("exclude: Element dort kein Ziel, Inhalt weiterhin schon", excl.adminAusgeschlossen && excl.inhaltOk);
+check("exclude: Text zählt nicht zu den Offsets", excl.textAusgeschlossen === true);
+
+// --- Live-Theme: ☾/☀-Knopf folgt im Auto-Modus dem Systemwechsel ---
+await page.emulateMedia({ colorScheme: "light" });
+await load();
+const iconHell = await page.evaluate(() =>
+  [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")]
+    .find((b) => b.getAttribute("aria-label") === "Hell-/Dunkelmodus umschalten").textContent);
+await page.emulateMedia({ colorScheme: "dark" });
+// das matchMedia-Change-Event feuert asynchron -> auf den Icon-Wechsel warten
+const iconDunkel = await page.waitForFunction(() => {
+  const b = [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")]
+    .find((x) => x.getAttribute("aria-label") === "Hell-/Dunkelmodus umschalten");
+  return b && b.textContent === "☀" ? b.textContent : false;
+}, null, { timeout: 5000 }).then((h) => h.jsonValue()).catch(() => "timeout");
+check("Live-Theme: Knopf wechselt bei Systemwechsel (auto)", iconHell === "☾" && iconDunkel === "☀");
+await page.emulateMedia({ colorScheme: "light" });
+
+// --- ARIA: Panel ist region (kein menu), FAB verweist per aria-controls ---
+const aria = await page.evaluate(() => {
+  const panel = document.querySelector(".kommentare-panel");
+  const fab = document.querySelector(".kommentare-fab");
+  return { role: panel ? panel.getAttribute("role") : null,
+           controls: fab && panel ? fab.getAttribute("aria-controls") === panel.id : false };
+});
+check("ARIA: Panel role=region statt menu", aria.role === "region");
+check("ARIA: FAB hat aria-controls aufs Panel", aria.controls === true);
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");

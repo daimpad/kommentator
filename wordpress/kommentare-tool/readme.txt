@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.7.1
+Stable tag: 1.8.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -56,6 +56,8 @@ per HTTP Basic Auth in der .htaccess.
   (leer = Button aus). Standard: leer.
 * `kommentare_elements` (bool) – Element-Kommentare (Boxen/Bilder). Standard: an.
 * `kommentare_points` (bool) – Punkt an eine Stelle anheften. Standard: an.
+* `kommentare_exclude` (string) – CSS-Selektor für vom Kommentieren
+  ausgenommene Bereiche. Standard: `#wpadminbar` (Admin-Bar).
 * `kommentare_init_config` (array) – vollständige init-Optionen; hier lassen
   sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
@@ -69,6 +71,14 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.8.0 =
+* Neue Option/Filter kommentare_exclude: Bereiche vom Kommentieren ausnehmen;
+  Standard schließt die WordPress-Admin-Bar (#wpadminbar) aus.
+* Theme-Knopf folgt im Auto-Modus live dem Systemwechsel (hell/dunkel).
+* Barrierefreiheit: Panel als role="region" mit aria-controls am Menü-Button;
+  Auswahl-Cursor nicht mehr über den Werkzeug-Bedienelementen.
+* Schnelleres Sortieren der Notizliste bei vielen Kommentaren.
 
 = 1.7.1 =
 * Fix: „Notizen (Markdown)“/„Per E-Mail senden“ stürzten mit Element-/

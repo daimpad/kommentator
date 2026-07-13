@@ -218,6 +218,12 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 /* ---- Element-/Punkt-Kommentare ---- */
 .kommentare-picking{cursor:crosshair}
 .kommentare-picking *{cursor:crosshair!important}
+/* … aber nicht über den Werkzeug-Bedienelementen (Panel, FAB, Popover) */
+.kommentare-picking [data-kommentare-ui],
+.kommentare-picking [data-kommentare-ui] *{cursor:default!important}
+.kommentare-picking [data-kommentare-ui] button,
+.kommentare-picking [data-kommentare-ui] textarea{cursor:pointer!important}
+.kommentare-picking [data-kommentare-ui] textarea{cursor:text!important}
 /* Modus-Knöpfe („Element kommentieren“ / „Punkt anheften“) über den Notizen */
 .kommentare-margin>.kommentare-mode-toggle{
   width:100%;justify-content:center;margin-bottom:.5rem;
