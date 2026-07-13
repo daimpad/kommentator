@@ -42,6 +42,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `notesWidth` | String | Startbreite der Randspalte, z. B. `'22rem'` |
 | `elements` | Boolean | beliebige Web-Elemente (Boxen/Bilder) kommentierbar (Standard: `true`) |
 | `points` | Boolean | Punkt an eine bestimmte Stelle „anheften" (Standard: `true`) |
+| `exclude` | String | CSS-Selektor: passende Bereiche (inkl. Nachfahren) sind vom Kommentieren ausgenommen — Text, Element und Punkt (z. B. `'#wpadminbar'` oder `'.no-comments'`) |
 | `email` | String | Empfänger für „Per E-Mail senden“; leer = Button aus |
 | `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
@@ -276,7 +277,8 @@ ZIP hochladen) und aktivieren. Konfiguration über Filter:
 
 | Filter | Typ | Standard |
 |---|---|---|
-| `kommentare_container_selector` | string | `.entry-content` |
+| `kommentare_container_selector` | string | `body` (ganze Seite inkl. Header/Footer) |
+| `kommentare_notes` | string | `floating` (Notizen schweben; `inline` = Randspalte) |
 | `kommentare_should_load` | bool | `is_singular()` |
 | `kommentare_autor` | string | Anzeigename bzw. „Gast“ |
 | `kommentare_read_only` | bool | `false` |
@@ -284,6 +286,10 @@ ZIP hochladen) und aktivieren. Konfiguration über Filter:
 | `kommentare_theme_toggle` | bool | `true` |
 | `kommentare_toolbar_mode` | string | `floating` |
 | `kommentare_resizable` | bool | `true` |
+| `kommentare_email` | string | leer (Button aus) |
+| `kommentare_elements` | bool | `true` |
+| `kommentare_points` | bool | `true` |
+| `kommentare_exclude` | string | `#wpadminbar` (ausgenommene Bereiche) |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der
