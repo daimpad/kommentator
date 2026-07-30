@@ -19,6 +19,7 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
 <br>
 
 **[▶ Live-Demo](https://daimpad.github.io/kommentator/)**  ·
+**[⬇ WordPress-Plugin](../../releases)**  ·
 **[📘 Tutorial](TUTORIAL.md)**  ·
 **[🛠 Technische Doku](TECHNISCHE_DOKUMENTATION.md)**
 
@@ -80,7 +81,7 @@ Das war alles — Randspalte und Menü entstehen automatisch. Ausführlich im
 | Weg | Kurz |
 |---|---|
 | **Statische Seite** | `kommentare.css` + `kommentare.js` einbinden, `init(...)` aufrufen |
-| **WordPress** | Plugin aus `wordpress/kommentare-tool/` installieren → siehe [Tutorial](TUTORIAL.md#5-in-wordpress-installieren) |
+| **WordPress** | Fertiges Plugin-ZIP aus den [Releases](../../releases) (Tag `wp-v*`) hochladen → siehe [Tutorial](TUTORIAL.md#5-in-wordpress-installieren) |
 | **GitHub Pages** | Dateien pushen, Pages auf `main`/root → [Tutorial](TUTORIAL.md#6-veröffentlichen-auf-github-pages) |
 
 ## 🔒 Kurz zur Sicherheit

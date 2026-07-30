@@ -66,6 +66,21 @@ GitHub Pages, Quelle **„Deploy from a branch“ → `main` / root**. Jeder Pus
 `main` baut automatisch neu (`.nojekyll` liegt im Root). Nicht auf „GitHub
 Actions“ umstellen — für rein statische Dateien unnötig.
 
+## Release: Plugin getrennt vom Werkzeug
+
+Das **WordPress-Plugin** hat einen eigenen Release-Kanal, das statische Werkzeug
+läuft weiter über Pages/`main`. Diese Trennung nicht vermischen.
+
+- Tag-Schema **`wp-v<version>`** (z. B. `wp-v1.9.0`) → Workflow
+  `.github/workflows/release-wp-plugin.yml` baut `kommentare-tool-<version>.zip`
+  und veröffentlicht den Release; Notizen kommen aus dem Changelog-Abschnitt
+  `= <version> =` der `wordpress/kommentare-tool/readme.txt`.
+- Vor dem Tag: Version an **drei** Stellen erhöhen — Plugin-Header,
+  `KOMMENTARE_VERSION`, `Stable tag` in der `readme.txt` — plus Changelog-
+  Abschnitt. `npm run build-plugin` prüft das und bricht bei Abweichung ab
+  (auch bei nicht synchronisierten Assets).
+- `dist/` ist Build-Ausgabe und liegt in `.gitignore`.
+
 ## Git-Workflow
 
 - Entwicklung auf einem Feature-Branch, PR gegen `main`.

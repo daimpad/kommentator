@@ -1,0 +1,78 @@
+# ============================================================================
+# Eigener Release-Kanal NUR für das WordPress-Plugin — getrennt vom statischen
+# Werkzeug. Erzeugt ein installierbares ZIP und hängt es an einen GitHub-Release.
+#
+# Auslösen:
+#   a) Tag pushen:  git tag wp-v1.9.0 && git push origin wp-v1.9.0
+#   b) manuell:     Actions → „WordPress-Plugin Release" → Run workflow
+#                   (Version eintragen, z. B. 1.9.0)
+#
+# Die Tag-Version muss zur Version im Plugin-Header passen — sonst bricht der
+# Build ab (siehe scripts/build-plugin-zip.sh).
+# ============================================================================
+name: WordPress-Plugin Release
+
+on:
+  push:
+    tags:
+      - "wp-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Plugin-Version (z. B. 1.9.0) — muss dem Plugin-Header entsprechen"
+        required: true
+
+permissions:
+  contents: write # nötig, um den Release anzulegen
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Version bestimmen
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#wp-v}"   # wp-v1.9.0 -> 1.9.0
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=wp-v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Plugin-ZIP bauen (prüft Version + Asset-Gleichstand)
+        run: ./scripts/build-plugin-zip.sh "${{ steps.v.outputs.version }}"
+
+      - name: Changelog-Abschnitt aus readme.txt ziehen
+        id: notes
+        run: |
+          V="${{ steps.v.outputs.version }}"
+          {
+            echo "notes<<KOMMENTARE_EOF"
+            echo "**Installierbares WordPress-Plugin** — ZIP unten herunterladen und unter"
+            echo "*Plugins → Installieren → Plugin hochladen* einspielen."
+            echo
+            echo "### Änderungen in $V"
+            awk -v v="= $V =" '
+              $0 == v {p=1; next}
+              p && /^= [0-9]/ {exit}
+              p {print}
+            ' wordpress/kommentare-tool/readme.txt
+            echo
+            echo "---"
+            echo "Dieser Release enthält **nur das WordPress-Plugin**. Das statische"
+            echo "Werkzeug (kommentare.js/css, Demo) liegt unverändert im Repository."
+            echo "KOMMENTARE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Release veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          name: WordPress-Plugin ${{ steps.v.outputs.version }}
+          body: ${{ steps.notes.outputs.notes }}
+          files: dist/kommentare-tool-${{ steps.v.outputs.version }}.zip
+          fail_on_unmatched_files: true

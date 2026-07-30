@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "test": "node test/acceptance.mjs",
-    "sync-plugin-assets": "cp kommentare.css kommentare.js wordpress/kommentare-tool/assets/"
+    "sync-plugin-assets": "cp kommentare.css kommentare.js wordpress/kommentare-tool/assets/",
+    "build-plugin": "./scripts/build-plugin-zip.sh"
   },
   "devDependencies": {
     "playwright": "^1.40.0"
