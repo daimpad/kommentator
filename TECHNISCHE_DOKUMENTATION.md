@@ -308,6 +308,58 @@ npm run sync-plugin-assets
 
 ---
 
+## Release: Plugin getrennt vom Werkzeug
+
+Das WordPress-Plugin hat einen **eigenen, getaggten Release-Kanal** — unabhängig
+vom statischen Werkzeug. So gibt es immer einen Stand, der **nur das Plugin**
+enthält und direkt in WordPress installierbar ist.
+
+| | Plugin | statisches Werkzeug |
+|---|---|---|
+| Tag-Schema | `wp-v<version>` (z. B. `wp-v1.9.0`) | keins nötig (läuft über GitHub Pages/`main`) |
+| Version | Plugin-Header in `kommentare-tool.php` | — |
+| Ergebnis | Release mit `kommentare-tool-<version>.zip` | Dateien im Repo-Root |
+
+### ZIP lokal bauen
+
+```bash
+npm run build-plugin        # -> dist/kommentare-tool-<version>.zip
+```
+
+Das Skript (`scripts/build-plugin-zip.sh`) bricht ab, wenn
+
+1. Header-Version, `KOMMENTARE_VERSION` und `Stable tag` in der `readme.txt`
+   nicht übereinstimmen,
+2. die gebündelten Assets von `kommentare.js`/`kommentare.css` abweichen
+   (verhindert das Ausliefern eines veralteten Stands),
+3. die PHP-Datei einen Syntaxfehler hat,
+4. eine übergebene Version nicht zum Plugin-Header passt.
+
+Das ZIP enthält genau einen Ordner `kommentare-tool/` (so erwartet es WordPress)
+mit `kommentare-tool.php`, `readme.txt`, `assets/` und `LICENSE`.
+
+### Release veröffentlichen
+
+Neue Plugin-Version: Version in `kommentare-tool.php` (Header **und**
+`KOMMENTARE_VERSION`) sowie `Stable tag` in der `readme.txt` erhöhen, einen
+Changelog-Abschnitt `= <version> =` ergänzen — dann:
+
+```bash
+git tag wp-v1.9.1 && git push origin wp-v1.9.1
+```
+
+Der Workflow `.github/workflows/release-wp-plugin.yml` baut das ZIP, zieht die
+Release-Notizen aus dem passenden Changelog-Abschnitt der `readme.txt` und
+veröffentlicht den Release. Alternativ ohne Tag: **Actions → „WordPress-Plugin
+Release" → Run workflow** mit der Version.
+
+> Der Workflow braucht Schreibrechte für Releases (`permissions: contents: write`
+> ist gesetzt). Falls die Repo-Einstellung *Settings → Actions → General →
+> Workflow permissions* auf „Read repository contents" steht, dort auf
+> „Read and write permissions" umstellen.
+
+---
+
 ## Tests
 
 Headless-Akzeptanztest (Playwright). Deckt alle Abnahmekriterien plus

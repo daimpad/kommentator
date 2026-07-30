@@ -138,11 +138,18 @@ sodass klar bleibt, zu welcher Seite sie gehört.
 
 **Variante A — Plugin (empfohlen)**
 
-1. Den Ordner `wordpress/kommentare-tool/` als ZIP packen.
+1. **ZIP herunterladen** — im Repository unter
+   [**Releases**](https://github.com/daimpad/kommentator/releases) den neuesten
+   Eintrag „WordPress-Plugin *x.y.z*" öffnen und `kommentare-tool-x.y.z.zip`
+   herunterladen. (Diese Releases enthalten **nur das Plugin**.)
+   *Alternativ selbst bauen:* `npm run build-plugin` → `dist/`.
 2. WordPress-Admin → **Plugins → Installieren → Plugin hochladen** → ZIP wählen.
 3. Aktivieren. Fertig — die **ganze Seite** ist kommentierbar, im **Frontend
    wie im Backend** (wp-admin): Inhalt, Header, Footer, Admin-Menü und
    Adminleiste. Der Knopf für alle Funktionen sitzt unten rechts.
+
+> **Aktualisieren:** neues ZIP aus dem aktuellen Release hochladen und die
+> vorhandene Version ersetzen lassen.
 
 > **In Eingabefeldern und Editoren** (Textfelder, Block-Editor) löst das
 > Markieren von Text absichtlich *keinen* Kommentar aus — dort schreibt man.
