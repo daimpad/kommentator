@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -32,8 +32,13 @@ per HTTP Basic Auth in der .htaccess.
 1. Ordner `kommentare-tool` nach `wp-content/plugins/` hochladen
    (oder als ZIP über „Plugins > Installieren > Plugin hochladen").
 2. Plugin „Kommentare (Textstellen-Annotation)" aktivieren.
-3. Fertig – auf einzelnen Beiträgen/Seiten wird der Content-Bereich
-   (`.entry-content`) kommentierbar.
+3. Fertig – die ganze Seite ist kommentierbar, im **Frontend wie im Backend**
+   (wp-admin). Der Knopf für alle Funktionen sitzt unten rechts.
+
+Hinweis: In Eingabefeldern und Editoren (Textfelder, Block-Editor) löst das
+Markieren von Text absichtlich keinen Kommentar aus – dort schreibt man. Solche
+Bereiche lassen sich weiterhin über „Element kommentieren" oder „Punkt anheften"
+kommentieren.
 
 == Anpassung (Filter) ==
 
@@ -43,7 +48,11 @@ per HTTP Basic Auth in der .htaccess.
 * `kommentare_notes` (string) – `'floating'` (Notizen schweben, Seite bleibt
   unverändert – Standard) oder `'inline'` (Notizen als Randspalte, baut die
   Seite um; nur für einen abgegrenzten Inhaltscontainer sinnvoll).
-* `kommentare_should_load` (bool) – ob geladen wird. Standard: `is_singular()`.
+* `kommentare_should_load` (bool) – ob im Frontend geladen wird. Standard: `true`
+  (überall). Einschränken z. B. auf `is_singular()`.
+* `kommentare_should_load_admin` (bool, string $hook) – ob im Backend (wp-admin)
+  geladen wird. Standard: `true` (alle Admin-Seiten). Abschalten mit
+  `add_filter('kommentare_should_load_admin', '__return_false')`.
 * `kommentare_autor` (string) – angezeigter Autorname. Standard: Anzeigename des
   eingeloggten Benutzers, sonst „Gast".
 * `kommentare_read_only` (bool) – nur ansehen, keine neuen Kommentare.
@@ -56,10 +65,11 @@ per HTTP Basic Auth in der .htaccess.
   (leer = Button aus). Standard: leer.
 * `kommentare_elements` (bool) – Element-Kommentare (Boxen/Bilder). Standard: an.
 * `kommentare_points` (bool) – Punkt an eine Stelle anheften. Standard: an.
-* `kommentare_exclude` (string) – CSS-Selektor für vom Kommentieren
-  ausgenommene Bereiche. Standard: `#wpadminbar` (Admin-Bar).
-* `kommentare_init_config` (array) – vollständige init-Optionen; hier lassen
-  sich z. B. eigene UI-Texte (`texte`) ergänzen.
+* `kommentare_exclude` (string, bool $is_admin) – CSS-Selektor für vom
+  Kommentieren ausgenommene Bereiche. Standard: Frontend `#wpadminbar`,
+  Backend leer (die Admin-Oberfläche selbst ist kommentierbar).
+* `kommentare_init_config` (array, bool $is_admin) – vollständige init-Optionen;
+  hier lassen sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
 Beispiel (functions.php des Themes):
 
@@ -71,6 +81,18 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.9.0 =
+* Backend: das Werkzeug lädt jetzt auch in wp-admin (Filter
+  kommentare_should_load_admin) – Admin-Oberfläche, Menü und Adminleiste sind
+  dort kommentierbar.
+* Frontend: lädt jetzt auf allen Seiten (vorher nur einzelne Beiträge/Seiten).
+* Fix: Text-Kommentare griffen bei üblichen Auswahlarten nicht richtig – ein
+  Dreifachklick markierte den Absatz plus den Rest der Seite, eine Auswahl über
+  mehrere Absätze wurde ganz verworfen (Offset-Berechnung bei
+  Element-Grenzpunkten).
+* In Eingabefeldern/Editoren löst Text markieren keinen Kommentar mehr aus
+  (dort wird geschrieben); Element-/Punkt-Kommentare bleiben möglich.
 
 = 1.8.0 =
 * Neue Option/Filter kommentare_exclude: Bereiche vom Kommentieren ausnehmen;
