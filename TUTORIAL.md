@@ -140,14 +140,24 @@ sodass klar bleibt, zu welcher Seite sie gehört.
 
 1. Den Ordner `wordpress/kommentare-tool/` als ZIP packen.
 2. WordPress-Admin → **Plugins → Installieren → Plugin hochladen** → ZIP wählen.
-3. Aktivieren. Auf einzelnen Beiträgen/Seiten wird `.entry-content`
-   kommentierbar; das Menü sitzt unten rechts.
+3. Aktivieren. Fertig — die **ganze Seite** ist kommentierbar, im **Frontend
+   wie im Backend** (wp-admin): Inhalt, Header, Footer, Admin-Menü und
+   Adminleiste. Der Knopf für alle Funktionen sitzt unten rechts.
 
-Anpassen (in der `functions.php` deines Themes), z. B. anderer Container oder
-nur für eingeloggte Nutzer:innen:
+> **In Eingabefeldern und Editoren** (Textfelder, Block-Editor) löst das
+> Markieren von Text absichtlich *keinen* Kommentar aus — dort schreibt man.
+> Diese Bereiche lassen sich über **„Element kommentieren"** oder **„Punkt
+> anheften"** kommentieren.
+
+Anpassen (in der `functions.php` deines Themes), z. B. Backend-Kommentare
+abschalten, anderer Container oder nur für eingeloggte Nutzer:innen:
 
 ```php
+// nur im Frontend kommentieren
+add_filter('kommentare_should_load_admin', '__return_false');
+// nur den Beitragsinhalt statt der ganzen Seite
 add_filter('kommentare_container_selector', fn() => '.wp-block-post-content');
+// nur für eingeloggte Nutzer:innen
 add_filter('kommentare_should_load', fn($load) => $load && is_user_logged_in());
 ```
 

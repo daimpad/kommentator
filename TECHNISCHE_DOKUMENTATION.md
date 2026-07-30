@@ -237,6 +237,12 @@ Damit `container: 'body'` sauber funktioniert, ignoriert die Textauswahl
 automatisch `<script>`/`<style>` sowie alle werkzeugeigenen Bedienelemente
 (Panel, Overlays, Popover; markiert mit `data-kommentare-ui`).
 
+**Eingabefelder und Editoren:** Text zu markieren bedeutet dort *bearbeiten*,
+nicht kommentieren. Auswahlen in `input`, `textarea`, `select` und
+`[contenteditable]` (z. B. dem WordPress-Block-Editor) lösen daher **kein**
+Kommentarfeld aus. Solche Bereiche lassen sich weiterhin per **Element** oder
+**Punkt** kommentieren.
+
 > Die in-flow-Variante (`inline`) reflowt die Seite und eignet sich für einen
 > Artikel-/Content-Container; die schwebende Variante (`floating`) lässt das
 > Seitenlayout unangetastet und ist für ganze Seiten gedacht.
@@ -279,7 +285,8 @@ ZIP hochladen) und aktivieren. Konfiguration über Filter:
 |---|---|---|
 | `kommentare_container_selector` | string | `body` (ganze Seite inkl. Header/Footer) |
 | `kommentare_notes` | string | `floating` (Notizen schweben; `inline` = Randspalte) |
-| `kommentare_should_load` | bool | `is_singular()` |
+| `kommentare_should_load` | bool | `true` (Frontend, alle Seiten) |
+| `kommentare_should_load_admin` | bool, `$hook` | `true` (Backend, alle wp-admin-Seiten) |
 | `kommentare_autor` | string | Anzeigename bzw. „Gast“ |
 | `kommentare_read_only` | bool | `false` |
 | `kommentare_help` | bool | `true` |
@@ -289,7 +296,7 @@ ZIP hochladen) und aktivieren. Konfiguration über Filter:
 | `kommentare_email` | string | leer (Button aus) |
 | `kommentare_elements` | bool | `true` |
 | `kommentare_points` | bool | `true` |
-| `kommentare_exclude` | string | `#wpadminbar` (ausgenommene Bereiche) |
+| `kommentare_exclude` | string, `$is_admin` | Frontend `#wpadminbar`, Backend leer |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der

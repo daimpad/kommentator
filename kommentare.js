@@ -977,11 +977,35 @@
       var n; while ((n = w.nextNode())) out.push(n);
       return out;
     },
+    // Zeichenposition eines Auswahl-Grenzpunktes im Volltext des Containers.
+    // Der Grenzpunkt kann auch ein ELEMENT-Knoten sein (Dreifachklick, Auswahl
+    // über mehrere Absätze) — dann per Dokumentreihenfolge einordnen, statt
+    // (wie früher) auf die Gesamtlänge zu verfallen.
     _globalOffset: function (node, off) {
-      var sum = 0, nodes = this._textNodes(this.container);
-      for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i] === node) return sum + off;
-        sum += nodes[i].nodeValue.length;
+      var nodes = this._textNodes(this.container);
+      var i, sum = 0;
+      // Schnellpfad: Grenzpunkt liegt in einem gezählten Textknoten
+      if (node.nodeType === 3) {
+        for (i = 0; i < nodes.length; i++) {
+          if (nodes[i] === node) return sum + off;
+          sum += nodes[i].nodeValue.length;
+        }
+      }
+      // Allgemeiner Fall: Grenzpunkt mit jedem Textknoten vergleichen
+      var bp = document.createRange();
+      try { bp.setStart(node, off); bp.collapse(true); }
+      catch (_) { return 0; }
+      sum = 0;
+      for (i = 0; i < nodes.length; i++) {
+        var t = nodes[i], len = t.nodeValue.length;
+        var r = document.createRange();
+        r.selectNodeContents(t);
+        // Grenzpunkt vor (oder am) Anfang dieses Knotens -> Position erreicht
+        if (bp.compareBoundaryPoints(Range.START_TO_START, r) <= 0) return sum;
+        // Grenzpunkt hinter (oder am) Ende -> Knoten vollständig davor
+        if (bp.compareBoundaryPoints(Range.END_TO_START, r) >= 0) { sum += len; continue; }
+        // Grenzpunkt liegt innerhalb dieses Knotens
+        return sum + Math.min(off, len);
       }
       return sum;
     },
@@ -1080,6 +1104,15 @@
       if (e.closest("[data-kommentare-ui]")) return true;
       return !!(this.exclude && e.closest(this.exclude));
     },
+    // Text in Eingabefeldern/Editoren markiert man zum Bearbeiten, nicht zum
+    // Kommentieren — sonst poppt das Kommentarfeld beim Schreiben auf (z. B. im
+    // WordPress-Editor). Solche Bereiche lassen sich weiter als Element oder
+    // per Punkt kommentieren.
+    _inEditable: function (node) {
+      var e = node && (node.nodeType === 1 ? node : node.parentNode);
+      if (!e || !e.closest) return false;
+      return !!e.closest('input,textarea,select,[contenteditable=""],[contenteditable="true"]');
+    },
     _handleSelection: function () {
       if (this.readOnly || this._mode) return;
       var sel = window.getSelection();
@@ -1089,6 +1122,8 @@
       // Auswahl, die in der Werkzeug-UI beginnt/endet (z. B. Notiz-Panel bei
       // container=body), würde stille Offset-Fehler erzeugen -> abbrechen.
       if (this._inToolUi(r.startContainer) || this._inToolUi(r.endContainer)) return;
+      // Auswahl in Eingabefeldern/Editoren gehört dem Bearbeiten, nicht uns.
+      if (this._inEditable(r.startContainer) || this._inEditable(r.endContainer)) return;
       var start = this._globalOffset(r.startContainer, r.startOffset);
       var end = this._globalOffset(r.endContainer, r.endOffset);
       if (start > end) { var tmp = start; start = end; end = tmp; }

@@ -499,7 +499,8 @@ const excl = await page.evaluate(() => {
   const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
   const s = getSelection(); s.removeAllRanges(); s.addRange(r);
   host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-  const composeOffen = !document.querySelector(".kommentare-compose").classList.contains("kommentare-hidden");
+  // eigenes Popover der Instanz prüfen (mehrere Instanzen auf der Seite!)
+  const composeOffen = !inst._composeEl.classList.contains("kommentare-hidden");
   // 2) Element im ausgeschlossenen Bereich ist kein gültiges Ziel
   const zielAdmin = inst._elementTargetFrom(host.querySelector("#adminbar p"));
   const zielInhalt = inst._elementTargetFrom(host.querySelector("main p"));
@@ -538,6 +539,81 @@ const aria = await page.evaluate(() => {
 });
 check("ARIA: Panel role=region statt menu", aria.role === "region");
 check("ARIA: FAB hat aria-controls aufs Panel", aria.controls === true);
+
+// --- Offsets bei Element-Grenzpunkten (Dreifachklick, Mehr-Absatz-Auswahl) ---
+await load();
+const off = await page.evaluate(() => {
+  const p0 = document.querySelector("#content p");
+  return {
+    gesamt: window.instanz._plainText().length,
+    mitElement: window.instanz._globalOffset(p0, 0),
+    mitTextknoten: window.instanz._globalOffset(p0.firstChild, 0)
+  };
+});
+check("Offsets: Element-Grenzpunkt liefert echte Position (nicht Gesamtlänge)",
+  off.mitElement === off.mitTextknoten && off.mitElement < off.gesamt);
+
+// Dreifachklick-Auswahl (endContainer ist ein Element) trifft genau den Absatz
+const triple = await page.evaluate(() => {
+  const p0 = document.querySelector("#content p");
+  const r = document.createRange();
+  r.setStart(p0.firstChild, 0);
+  r.setEnd(p0, p0.childNodes.length);   // Element-Grenzpunkt
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  document.getElementById("content").dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  const q = window.instanz.pending ? window.instanz.pending.quote : "";
+  const erwartet = p0.textContent.trim();
+  window.instanz._closeCompose();
+  return { passt: q === erwartet, laenge: q.length, erwartet: erwartet.length };
+});
+check("Offsets: Dreifachklick umfasst genau den Absatz", triple.passt === true);
+
+// Auswahl über zwei Absätze mit Element-Grenzpunkten an beiden Enden
+const multi = await page.evaluate(() => {
+  const ps = document.querySelectorAll("#content p");
+  const r = document.createRange();
+  r.setStart(ps[0], 0);
+  r.setEnd(ps[1], ps[1].childNodes.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  document.getElementById("content").dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  const q = window.instanz.pending ? window.instanz.pending.quote : "";
+  window.instanz._closeCompose();
+  return { beginnt: q.indexOf(ps[0].textContent.trim().slice(0, 20)) === 0,
+           endet: q.indexOf(ps[1].textContent.trim().slice(-20)) === q.length - 20 };
+});
+check("Offsets: Auswahl über zwei Absätze wird korrekt erfasst",
+  multi.beginnt === true && multi.endet === true);
+
+// --- Eingabefelder/Editoren: Auswahl dort kommentiert nicht (WP-Editor) ---
+const editable = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "edithost";
+  host.innerHTML = '<div contenteditable="true" id="ce"><p>Text im Editor.</p></div>' +
+    '<textarea id="ta">Text im Feld.</textarea><p id="frei">Freier Text.</p>';
+  document.body.appendChild(host);
+  const inst = window.Kommentare.init({ container: "#edithost", notes: "floating", autor: "ED" });
+  // eigenes Popover der Instanz prüfen (mehrere Instanzen auf der Seite!)
+  const compose = inst._composeEl;
+  function versuch(node) {
+    const tn = node.firstChild;
+    const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    const offen = !compose.classList.contains("kommentare-hidden");
+    inst._closeCompose();
+    return offen;
+  }
+  const res = {
+    contenteditable: versuch(host.querySelector("#ce p")),
+    freierText: versuch(host.querySelector("#frei")),
+    elementZiel: !!inst._elementTargetFrom(host.querySelector("#ce"))
+  };
+  inst.destroy(); host.remove();
+  return res;
+});
+check("Editor-Schutz: Auswahl in contenteditable kommentiert nicht", editable.contenteditable === false);
+check("Editor-Schutz: normaler Text weiterhin kommentierbar", editable.freierText === true);
+check("Editor-Schutz: Editor-Bereich bleibt als Element kommentierbar", editable.elementZiel === true);
 
 await browser.close();
 const failed = results.filter((r) => !r[1]);
