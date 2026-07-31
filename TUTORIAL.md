@@ -13,7 +13,8 @@ in WordPress installieren und schließlich veröffentlichen.
 5. [In WordPress installieren](#5-in-wordpress-installieren)
 6. [Veröffentlichen auf GitHub Pages](#6-veröffentlichen-auf-github-pages)
 7. [Echten Zugriffsschutz einrichten](#7-echten-zugriffsschutz-einrichten)
-8. [Problembehebung](#8-problembehebung)
+8. [Kommentare in einem Google Sheet sammeln](#8-kommentare-in-einem-google-sheet-sammeln)
+9. [Problembehebung](#9-problembehebung)
 
 ---
 
@@ -226,7 +227,144 @@ In WordPress übernehmen das Login/Rollen bzw. der Filter
 
 ---
 
-## 8. Problembehebung
+## 8. Kommentare in einem Google Sheet sammeln
+
+Ohne Backend läuft das Teilen asynchron (Abschnitt 4). Wenn stattdessen **viele
+Kommentierende auf vielen Seiten in einer einzigen Tabelle** zusammenlaufen
+sollen, gibt es einen optionalen Weg: eine **Sammelstelle**. Das Werkzeug meldet
+jede Änderung an eine Adresse; dahinter hängt ein kleines Google-Apps-Script,
+das die Zeile ins Sheet schreibt. Kein Server, keine Datenbank, kein Hosting.
+
+> Ohne `webhook` bleibt alles wie bisher: es verlässt kein Kommentar den Browser.
+
+### Schritt 1 — Tabelle anlegen
+
+Neues Google Sheet erstellen, z. B. „Kommentare“. Die Kopfzeile legt das Skript
+selbst an.
+
+### Schritt 2 — Apps Script einfügen
+
+Im Sheet: **Erweiterungen → Apps Script**. Den vorhandenen Code durch diesen
+ersetzen und speichern:
+
+```javascript
+/* Nimmt Meldungen des Kommentar-Werkzeugs entgegen und schreibt sie ins Sheet.
+   Vorhandene Kommentar-IDs werden aktualisiert statt doppelt angelegt. */
+const BLATT = 'Kommentare';
+const SPALTEN = ['Zeitpunkt', 'Seiten-URL', 'Seitentitel', 'Autor:in', 'Art',
+                 'Aktion', 'Markierte Stelle', 'Kommentar', 'Kommentar-ID',
+                 'Sitzung', 'Browser', 'Sprache', 'Bildschirm'];
+const SPALTE_ID = 9; // Position von 'Kommentar-ID' in SPALTEN
+
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000); // gleichzeitige Meldungen nacheinander abarbeiten
+  try {
+    const daten = JSON.parse(e.postData.contents);
+    const blatt = holeBlatt();
+    const letzte = blatt.getLastRow();
+    const ids = letzte > 1
+      ? blatt.getRange(2, SPALTE_ID, letzte - 1, 1).getValues().map(r => String(r[0]))
+      : [];
+
+    (daten.eintraege || []).forEach(k => {
+      const zeile = [k.zeitpunkt, k.seitenUrl, k.seitenTitel, k.autor, k.art,
+                     k.aktion, k.stelle, k.kommentar, k.kommentarId, k.sitzung,
+                     k.userAgent, k.sprache, k.bildschirm];
+      const pos = ids.indexOf(String(k.kommentarId));
+      if (pos >= 0) {
+        blatt.getRange(pos + 2, 1, 1, zeile.length).setValues([zeile]);
+      } else {
+        blatt.appendRow(zeile);
+        ids.push(String(k.kommentarId));
+      }
+    });
+    return ContentService.createTextOutput('ok');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function holeBlatt() {
+  const datei = SpreadsheetApp.getActiveSpreadsheet();
+  let blatt = datei.getSheetByName(BLATT) || datei.insertSheet(BLATT);
+  if (blatt.getLastRow() === 0) {
+    blatt.appendRow(SPALTEN);
+    blatt.setFrozenRows(1);
+  }
+  return blatt;
+}
+```
+
+### Schritt 3 — Als Web-App veröffentlichen
+
+**Bereitstellen → Neue Bereitstellung → Typ „Web-App“**, dann:
+
+| Einstellung | Wert |
+|---|---|
+| Ausführen als | **Ich** (dein Google-Konto) |
+| Zugriff | **Jeder** |
+
+Beim ersten Mal fragt Google nach Berechtigungen — bestätigen. Danach die
+angezeigte Adresse kopieren; sie endet auf `/exec`.
+
+> „Zugriff: Jeder“ ist nötig, weil die kommentierenden Browser nicht bei Google
+> angemeldet sind. Wer die Adresse kennt, kann Zeilen schreiben — sie gehört
+> also nicht in öffentlich einsehbaren Code, wenn das stört. Nach jeder
+> Skript-Änderung: **Bereitstellen → Bereitstellungen verwalten → bearbeiten →
+> neue Version**, sonst läuft weiter der alte Stand.
+
+### Schritt 4 — Adresse eintragen
+
+**Statische Einbindung** (`demo.js` bzw. dein Start-Code):
+
+```js
+Kommentare.init({
+  container: '[data-kommentierbar]',
+  autor: name,
+  webhook: 'https://script.google.com/macros/s/AKfycb…/exec'
+});
+```
+
+**WordPress** (`functions.php` des Themes):
+
+```php
+add_filter('kommentare_webhook', function () {
+    return 'https://script.google.com/macros/s/AKfycb…/exec';
+});
+```
+
+Fertig. Ab jetzt landet jeder neue, geänderte und gelöschte Kommentar
+automatisch als Zeile in der Tabelle — von jeder Seite, auf der das Werkzeug
+läuft. Im Menü erscheint zusätzlich **„Alle senden“**, das alle eigenen
+Kommentare noch einmal komplett schickt.
+
+### Was in der Tabelle steht
+
+Zeitpunkt · Seiten-URL · Seitentitel · Autor:in · Art (Text/Element/Punkt) ·
+Aktion (neu/geändert/gelöscht) · markierte Stelle · Kommentar · Kommentar-ID ·
+Sitzung · Browser · Sprache · Bildschirm.
+
+**Keine IP-Adresse.** Weder Browser-JS noch Apps Script bekommen sie zu sehen —
+dafür bräuchte es einen vorgeschalteten Proxy (z. B. Cloudflare Worker). Sie ist
+außerdem ein personenbezogenes Datum und damit DSGVO-relevant. Stattdessen gibt
+es eine **anonyme Sitzungskennung**, die die Meldungen eines Tabs gruppiert und
+beim Schließen verfällt. Ist die Sammelstelle aktiv, sagt der „?“-Hilfetext das
+den Kommentierenden ausdrücklich.
+
+### Grenzen
+
+| Punkt | Bedeutung |
+|---|---|
+| Keine Empfangsbestätigung | Der Versand ist „abschicken und gut“ (CORS lässt keine lesbare Antwort zu). „Alle senden“ ist das Netz; Doppelte fängt die Kommentar-ID ab. |
+| Kein Rückkanal | Die Tabelle füllt sich, aber die Seite liest **nicht** aus ihr. Gemeinsames Sehen läuft weiterhin über „Kommentare laden“ (Abschnitt 4). |
+| Apps-Script-Kontingente | Für Review-Runden weit ausreichend; bei sehr hohem Aufkommen sind Cloudflare Worker oder Airtable die robustere Wahl — die Adresse tauschst du einfach aus, die Nutzlast bleibt gleich. |
+
+Aufbau der Nutzlast: [Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md).
+
+---
+
+## 9. Problembehebung
 
 | Symptom | Ursache / Lösung |
 |---|---|

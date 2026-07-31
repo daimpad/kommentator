@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -20,6 +20,12 @@ sammelt die Dateien ein und liest sie über „Kommentare laden" gemeinsam ein �
 alle Notizen erscheinen dann nebeneinander.
 
 Der Zustand bleibt im Speicher der Sitzung (kein localStorage, kein Backend).
+
+Optional lässt sich eine zentrale Sammelstelle hinterlegen (Filter
+`kommentare_webhook`): dann melden sich neue Kommentare zusätzlich automatisch
+an eine Adresse – z. B. an ein Google-Apps-Script-Web-App vor einem Google
+Sheet. So laufen viele Kommentierende auf vielen Seiten in einer Tabelle
+zusammen. Ohne Adresse verlässt kein Kommentar den Browser.
 
 = Zugriffsschutz =
 
@@ -68,6 +74,13 @@ kommentieren.
 * `kommentare_exclude` (string, bool $is_admin) – CSS-Selektor für vom
   Kommentieren ausgenommene Bereiche. Standard: Frontend `#wpadminbar`,
   Backend leer (die Admin-Oberfläche selbst ist kommentierbar).
+* `kommentare_webhook` (string) – https-Adresse einer zentralen Sammelstelle,
+  an die neue Kommentare gemeldet werden (z. B. ein Google-Apps-Script-Web-App
+  vor einem Google Sheet). Standard: leer = aus, dann verlässt kein Kommentar
+  den Browser. Anleitung: TUTORIAL.md, Abschnitt 8 „Kommentare in einem Google
+  Sheet sammeln".
+* `kommentare_webhook_auto` (bool) – automatisch bei jeder Änderung melden.
+  Standard: an. Aus = nur der Knopf „Alle senden" schickt.
 * `kommentare_init_config` (array, bool $is_admin) – vollständige init-Optionen;
   hier lassen sich z. B. eigene UI-Texte (`texte`) ergänzen.
 
@@ -81,6 +94,18 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.10.0 =
+* Neu: zentrale Sammelstelle. Mit dem Filter kommentare_webhook gehen neue
+  Kommentare automatisch an eine Adresse – z. B. an ein Google-Apps-Script-Web-App
+  vor einem Google Sheet. Damit laufen viele Kommentierende auf vielen Seiten in
+  einer einzigen Tabelle zusammen.
+* Gemeldet werden Zeitpunkt, Seiten-URL und -Titel, Autor:in, Art (Text/Element/
+  Punkt), markierte Stelle, Kommentar, Kommentar-ID, Browser, Sprache und
+  Bildschirmgröße – KEINE IP-Adresse, nur eine anonyme Sitzungskennung.
+* Neuer Knopf „Alle senden" als Netz für den automatischen Versand; Filter
+  kommentare_webhook_auto schaltet die Automatik ab.
+* Ohne gesetzte Adresse bleibt alles wie bisher: kein Versand, kein Knopf.
 
 = 1.9.0 =
 * Backend: das Werkzeug lädt jetzt auch in wp-admin (Filter

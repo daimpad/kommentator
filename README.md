@@ -46,6 +46,10 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
   Stelle beim Wiedereinlesen zuverlässig wieder.
 - 🔀 **Zusammenführen ohne Backend** — Rückmeldungen exportieren, einsammeln,
   gemeinsam einlesen (dedupliziert nach `id`).
+- 📊 **Optional: alles in einer Tabelle** — mit `webhook` melden sich neue
+  Kommentare automatisch an ein **Google Sheet** (Apps Script) oder einen
+  eigenen Endpunkt. Viele Kommentierende, viele Seiten, **eine** Tabelle —
+  ohne Datenbank. Ohne die Adresse verlässt nichts den Browser.
 - 🎛️ **Aufgeräumte Oberfläche** — Floating-Button unten rechts, ziehbare
   Notizspalte, „?“-Hilfe, ☾/☀ Hell-/Dunkelmodus.
 - 🎨 **Themebar** — alles über CSS-Variablen; Dark-Mode inklusive.
@@ -94,6 +98,8 @@ Das Namensfeld dient der **Zuordnung**, nicht dem Zugriffsschutz. Echten Schutz
 ## 📚 Dokumentation
 
 - **[Tutorial](TUTORIAL.md)** — Nutzung, Installation, Deployment, Troubleshooting.
+- **[Kommentare in einem Google Sheet sammeln](TUTORIAL.md#8-kommentare-in-einem-google-sheet-sammeln)**
+  — Schritt für Schritt, mit fertigem Apps-Script.
 - **[Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md)** — API, Optionen,
   Datenmodell, Theming, WordPress-Filter, Tests.
 - **[CLAUDE.md](CLAUDE.md)** — Leitfaden für Beiträge / KI-Agenten.

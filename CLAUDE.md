@@ -26,6 +26,10 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 
 - **Keine externen Abhängigkeiten**, kein Bundler, kein Build-Schritt, **kein
   `localStorage`**. Zustand lebt im Speicher der Sitzung.
+- **Ohne Konfiguration verlässt nichts den Browser.** Die Sammelstelle
+  (`webhook`) ist opt-in und muss es bleiben: leer = kein Versand, kein Knopf.
+  Gemeldet werden nie IP-Adressen, nur eine anonyme Sitzungskennung
+  (`sessionStorage`); ist sie aktiv, benennt der Hilfetext den Versand.
 - **Datenmodell W3C-Web-Annotation-nah** beibehalten (`TextQuoteSelector` +
   `TextPositionSelector`). Verankerung: Position zuerst, Fallback über Wortlaut,
   Disambiguierung per `prefix`/`suffix`.
