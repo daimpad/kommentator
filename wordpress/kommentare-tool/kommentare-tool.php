@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.10.0
+ * Version:           1.11.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -27,7 +27,226 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.10.0');
+define('KOMMENTARE_VERSION', '1.11.0');
+
+/* ===========================================================================
+ * EINSTELLUNGEN (Einstellungen → Kommentator)
+ * ---------------------------------------------------------------------------
+ * Alles Wesentliche lässt sich im Backend eintragen — ohne functions.php.
+ * Die Filter weiter unten bleiben bestehen: die gespeicherte Einstellung ist
+ * jeweils nur der VORGABEWERT, ein Filter im Theme sticht ihn weiterhin.
+ * ======================================================================== */
+
+/** Vorgabewerte aller Einstellungen. */
+function kommentare_standard_optionen() {
+    return array(
+        'webhook'      => '',      // Adresse der zentralen Sammelstelle
+        'webhook_auto' => 1,       // automatisch bei jeder Änderung melden
+        'email'        => '',      // Empfänger für „Per E-Mail senden"
+        'container'    => 'body',  // kommentierbarer Bereich
+        'frontend'     => 1,       // im Frontend laden
+        'backend'      => 1,       // in wp-admin laden
+    );
+}
+
+/** Gespeicherte Einstellungen, mit Vorgaben aufgefüllt. */
+function kommentare_optionen() {
+    $gespeichert = get_option('kommentare_optionen', array());
+    if (!is_array($gespeichert)) {
+        $gespeichert = array();
+    }
+    return array_merge(kommentare_standard_optionen(), $gespeichert);
+}
+
+/** Einzelne Einstellung lesen. */
+function kommentare_option($schluessel) {
+    $optionen = kommentare_optionen();
+    return isset($optionen[$schluessel]) ? $optionen[$schluessel] : null;
+}
+
+/**
+ * Eingaben prüfen, bevor sie gespeichert werden.
+ *
+ * @param array $eingabe Rohwerte aus dem Formular.
+ * @return array
+ */
+function kommentare_optionen_pruefen($eingabe) {
+    $standard = kommentare_standard_optionen();
+    $eingabe  = is_array($eingabe) ? $eingabe : array();
+    $sauber   = array();
+
+    // Sammelstelle: ausschließlich http(s). Alles andere wird verworfen —
+    // mit sichtbarer Rückmeldung, statt still zu schlucken.
+    $roh = isset($eingabe['webhook']) ? trim((string) $eingabe['webhook']) : '';
+    $url = $roh === '' ? '' : esc_url_raw($roh, array('http', 'https'));
+    if ($roh !== '' && $url === '') {
+        add_settings_error(
+            'kommentare_optionen',
+            'kommentare_webhook_ungueltig',
+            __('Die Adresse der Sammelstelle wurde nicht übernommen: Es sind nur http(s)-Adressen erlaubt.', 'kommentare'),
+            'error'
+        );
+    }
+    $sauber['webhook'] = $url;
+
+    $sauber['webhook_auto'] = empty($eingabe['webhook_auto']) ? 0 : 1;
+    $sauber['frontend']     = empty($eingabe['frontend']) ? 0 : 1;
+    $sauber['backend']      = empty($eingabe['backend']) ? 0 : 1;
+
+    $mail = isset($eingabe['email']) ? sanitize_email($eingabe['email']) : '';
+    if (!empty($eingabe['email']) && $mail === '') {
+        add_settings_error(
+            'kommentare_optionen',
+            'kommentare_email_ungueltig',
+            __('Die E-Mail-Adresse wurde nicht übernommen: keine gültige Adresse.', 'kommentare'),
+            'error'
+        );
+    }
+    $sauber['email'] = $mail;
+
+    $container = isset($eingabe['container']) ? sanitize_text_field($eingabe['container']) : '';
+    $sauber['container'] = $container !== '' ? $container : $standard['container'];
+
+    return $sauber;
+}
+
+/** Einstellung registrieren. */
+function kommentare_einstellungen_registrieren() {
+    register_setting('kommentare_optionen_gruppe', 'kommentare_optionen', array(
+        'type'              => 'array',
+        'sanitize_callback' => 'kommentare_optionen_pruefen',
+        'default'           => kommentare_standard_optionen(),
+    ));
+}
+add_action('admin_init', 'kommentare_einstellungen_registrieren');
+
+/** Menüpunkt unter „Einstellungen". */
+function kommentare_menue() {
+    add_options_page(
+        __('Kommentator', 'kommentare'),
+        __('Kommentator', 'kommentare'),
+        'manage_options',
+        'kommentare-tool',
+        'kommentare_einstellungsseite'
+    );
+}
+add_action('admin_menu', 'kommentare_menue');
+
+/** „Einstellungen"-Link in der Plugin-Liste. */
+function kommentare_plugin_links($links) {
+    $link = '<a href="' . esc_url(admin_url('options-general.php?page=kommentare-tool')) . '">'
+          . esc_html__('Einstellungen', 'kommentare') . '</a>';
+    array_unshift($links, $link);
+    return $links;
+}
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'kommentare_plugin_links');
+
+/** Die Einstellungsseite. */
+function kommentare_einstellungsseite() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    $o = kommentare_optionen();
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e('Kommentator', 'kommentare'); ?></h1>
+        <p class="description" style="max-width:46em">
+            <?php esc_html_e('Markieren, kommentieren, exportieren — im Frontend wie im Backend. Ohne Sammelstelle bleibt alles im Browser; erst mit einer Adresse laufen die Kommentare in einer zentralen Tabelle zusammen.', 'kommentare'); ?>
+        </p>
+
+        <form method="post" action="options.php">
+            <?php settings_fields('kommentare_optionen_gruppe'); ?>
+
+            <h2 class="title"><?php esc_html_e('Zentrale Sammelstelle', 'kommentare'); ?></h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">
+                        <label for="kommentare-webhook"><?php esc_html_e('Adresse', 'kommentare'); ?></label>
+                    </th>
+                    <td>
+                        <input name="kommentare_optionen[webhook]" id="kommentare-webhook" type="url"
+                               class="regular-text code" inputmode="url" spellcheck="false"
+                               placeholder="https://script.google.com/macros/s/…/exec"
+                               value="<?php echo esc_attr($o['webhook']); ?>">
+                        <p class="description">
+                            <?php esc_html_e('Leer lassen = aus. Dann verlässt kein Kommentar den Browser und der Knopf „Alle senden" erscheint nicht.', 'kommentare'); ?>
+                            <br>
+                            <?php esc_html_e('Für ein Google Sheet: Tabelle anlegen → Erweiterungen → Apps Script → Skript einfügen → Bereitstellen als Web-App („Ausführen als: Ich", „Zugriff: Jeder") → die Adresse auf /exec hier eintragen.', 'kommentare'); ?>
+                            <a href="https://github.com/daimpad/kommentator/blob/main/TUTORIAL.md#8-kommentare-in-einem-google-sheet-sammeln"
+                               target="_blank" rel="noopener"><?php esc_html_e('Schritt-für-Schritt-Anleitung mit fertigem Skript', 'kommentare'); ?></a>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e('Versand', 'kommentare'); ?></th>
+                    <td>
+                        <label>
+                            <input name="kommentare_optionen[webhook_auto]" type="checkbox" value="1"
+                                   <?php checked($o['webhook_auto'], 1); ?>>
+                            <?php esc_html_e('Jede Änderung automatisch melden', 'kommentare'); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e('Aus = nur der Knopf „Alle senden" schickt. Gemeldet werden Zeitpunkt, Seiten-URL und -Titel, Autor:in, Art, markierte Stelle, Kommentar, Browser, Sprache und Bildschirmgröße — keine IP-Adresse, nur eine anonyme Sitzungskennung.', 'kommentare'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 class="title"><?php esc_html_e('Anzeige', 'kommentare'); ?></h2>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e('Laden', 'kommentare'); ?></th>
+                    <td>
+                        <label>
+                            <input name="kommentare_optionen[frontend]" type="checkbox" value="1"
+                                   <?php checked($o['frontend'], 1); ?>>
+                            <?php esc_html_e('Im Frontend (öffentliche Seiten)', 'kommentare'); ?>
+                        </label><br>
+                        <label>
+                            <input name="kommentare_optionen[backend]" type="checkbox" value="1"
+                                   <?php checked($o['backend'], 1); ?>>
+                            <?php esc_html_e('Im Backend (wp-admin)', 'kommentare'); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="kommentare-container"><?php esc_html_e('Kommentierbarer Bereich', 'kommentare'); ?></label>
+                    </th>
+                    <td>
+                        <input name="kommentare_optionen[container]" id="kommentare-container" type="text"
+                               class="regular-text code" spellcheck="false"
+                               value="<?php echo esc_attr($o['container']); ?>">
+                        <p class="description">
+                            <?php esc_html_e('CSS-Selektor. Standard „body" = ganze Seite inklusive Kopf- und Fußbereich. Nur den Inhalt: .entry-content oder .wp-block-post-content.', 'kommentare'); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="kommentare-email"><?php esc_html_e('E-Mail-Empfänger', 'kommentare'); ?></label>
+                    </th>
+                    <td>
+                        <input name="kommentare_optionen[email]" id="kommentare-email" type="email"
+                               class="regular-text" value="<?php echo esc_attr($o['email']); ?>">
+                        <p class="description">
+                            <?php esc_html_e('Für „Per E-Mail senden". Leer = Knopf aus.', 'kommentare'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button(); ?>
+        </form>
+
+        <p class="description">
+            <?php esc_html_e('Feinere Einstellungen (Element-/Punkt-Kommentare, Theme-Umschalter, eigene Texte, Nur-Lesen) laufen weiter über Filter im Theme. Ein Filter sticht dabei immer den hier gespeicherten Wert.', 'kommentare'); ?>
+            <a href="https://github.com/daimpad/kommentator/blob/main/TECHNISCHE_DOKUMENTATION.md#wordpress-plugin"
+               target="_blank" rel="noopener"><?php esc_html_e('Übersicht aller Filter', 'kommentare'); ?></a>
+        </p>
+    </div>
+    <?php
+}
 
 /**
  * Selektor des zu kommentierenden Containers.
@@ -43,7 +262,7 @@ define('KOMMENTARE_VERSION', '1.10.0');
  * @return string
  */
 function kommentare_container_selector() {
-    return apply_filters('kommentare_container_selector', 'body');
+    return apply_filters('kommentare_container_selector', kommentare_option('container'));
 }
 
 /**
@@ -59,7 +278,7 @@ function kommentare_container_selector() {
  * @return bool
  */
 function kommentare_should_load() {
-    return (bool) apply_filters('kommentare_should_load', true);
+    return (bool) apply_filters('kommentare_should_load', (bool) kommentare_option('frontend'));
 }
 
 /**
@@ -78,7 +297,7 @@ function kommentare_should_load() {
  * @return bool
  */
 function kommentare_should_load_admin($hook_suffix = '') {
-    return (bool) apply_filters('kommentare_should_load_admin', true, $hook_suffix);
+    return (bool) apply_filters('kommentare_should_load_admin', (bool) kommentare_option('backend'), $hook_suffix);
 }
 
 /**
@@ -109,7 +328,7 @@ function kommentare_build_config($is_admin = false) {
         'notes'       => (string) apply_filters('kommentare_notes', 'floating'),
         'resizable'   => (bool) apply_filters('kommentare_resizable', true),
         // E-Mail-Empfänger für „Per E-Mail senden" (leer = Button aus)
-        'email'       => (string) apply_filters('kommentare_email', ''),
+        'email'       => (string) apply_filters('kommentare_email', kommentare_option('email')),
         // Beliebige Elemente (Boxen/Bilder) kommentierbar machen
         'elements'    => (bool) apply_filters('kommentare_elements', true),
         // Punkt an eine bestimmte Stelle anheften
@@ -119,9 +338,9 @@ function kommentare_build_config($is_admin = false) {
         // Zentrale Sammelstelle: https-Adresse, an die neue Kommentare gemeldet
         // werden (z. B. ein Google-Apps-Script-Web-App vor einem Google Sheet).
         // Leer = aus; dann verlässt kein Kommentar den Browser.
-        'webhook'     => (string) apply_filters('kommentare_webhook', ''),
+        'webhook'     => (string) apply_filters('kommentare_webhook', kommentare_option('webhook')),
         // Automatisch bei jeder Änderung melden (sonst nur „Alle senden“)
-        'webhookAuto' => (bool) apply_filters('kommentare_webhook_auto', true),
+        'webhookAuto' => (bool) apply_filters('kommentare_webhook_auto', (bool) kommentare_option('webhook_auto')),
     );
 
     // Weitere init-Optionen (z. B. eigene UI-Texte) frei ergänzbar:
