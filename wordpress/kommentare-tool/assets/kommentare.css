@@ -190,6 +190,11 @@
   letter-spacing:.06em;text-transform:uppercase;color:var(--k-soft);margin-top:.2rem;
 }
 
+/* „Alle senden" verlässt als einzige Aktion den Browser (zentrale Sammelstelle)
+   und setzt sich deshalb sichtbar von den Downloads darüber ab. */
+.kommentare-send{margin-top:.15rem;border-color:var(--k-line-strong)}
+.kommentare-send::before{content:"↗";margin-right:.35em;opacity:.7}
+
 /* Primär-Aktionen (Export / Speichern) in Akzentfarbe.
    Die Speichern-Schaltfläche im Popover ist das jeweils letzte Element. */
 .kommentare-btn-primary,

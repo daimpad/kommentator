@@ -45,6 +45,8 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `exclude` | String | CSS-Selektor: passende Bereiche (inkl. Nachfahren) sind vom Kommentieren ausgenommen — Text, Element und Punkt (z. B. `'#wpadminbar'` oder `'.no-comments'`) |
 | `email` | String | Empfänger für „Per E-Mail senden“; leer = Button aus |
 | `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
+| `webhook` | String | `http(s)`-Adresse einer zentralen Sammelstelle; neue Kommentare werden dorthin gemeldet. Leer (Standard) = aus, es verlässt nichts den Browser |
+| `webhookAuto` | Boolean | automatisch bei jeder Änderung melden (Standard: `true`); `false` = nur der Knopf „Alle senden“ |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
 | `themeToggle` | Boolean | Hell-/Dunkel-Umschalter (Standard: `false`) |
 | `theme` | String | Anfangs-Theme: `'auto'` (Standard), `'light'`, `'dark'` |
@@ -63,6 +65,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `instanz.exportMarkdown()` | lesbare „Nur Notizen“-Fassung (Markdown) mit URL, Wortlaut, Kommentar, Autor:in, Datum |
 | `instanz.import(jsonOrArray)` | führt Annotationen zusammen, **dedupliziert nach `id`**; gibt die Anzahl neu hinzugefügter zurück |
 | `instanz.getAnnotations()` | Array (W3C-nahe Annotationen) |
+| `instanz.send()` | schickt alle eigenen Kommentare an `webhook`; gibt die Anzahl zurück (`0` ohne `webhook`) |
 | `instanz.setTheme('auto'\|'light'\|'dark')` | schaltet das Theme programmatisch |
 | `instanz.destroy()` | entfernt Markierungen, stellt DOM-Ausgangszustand wieder her |
 
@@ -215,6 +218,90 @@ Im Menü stehen unter „Herunterladen“:
 
 ---
 
+## Zentrale Sammelstelle (`webhook`)
+
+Standardmäßig verlässt **kein** Kommentar den Browser. Wird `webhook` auf eine
+`http(s)`-Adresse gesetzt, meldet das Werkzeug jede eigene Änderung zusätzlich
+dorthin — gedacht für ein **Google Sheet hinter einem Apps-Script-Web-App**, aber
+absichtlich generisch: derselbe Aufruf bedient auch einen Cloudflare Worker,
+Formspree oder einen eigenen Endpunkt. Schritt-für-Schritt-Anleitung samt
+fertigem Apps-Script: **[TUTORIAL.md, Abschnitt 8 „Kommentare in einem Google Sheet sammeln"](TUTORIAL.md#8-kommentare-in-einem-google-sheet-sammeln)**.
+
+Gemeldet wird:
+
+- **automatisch** nach jedem Anlegen, Bearbeiten und Löschen (`webhookAuto`,
+  Standard an),
+- **auf Knopfdruck** über „Alle senden“ im Menü (bzw. `instanz.send()`) — das
+  Netz für den Fall, dass ein automatischer Versand ins Leere lief.
+
+### Nutzlast
+
+Ein `POST` mit JSON-Text. `eintraege` ist bewusst **flach**, damit die
+Gegenstelle jeden Eintrag direkt als Tabellenzeile anhängen kann:
+
+```json
+{
+  "generator": "kommentar-tool",
+  "version": 1,
+  "gesendet": "2026-07-31T09:12:33.004Z",
+  "eintraege": [{
+    "zeitpunkt":   "2026-07-31T09:12:33.004Z",
+    "erstellt":    "2026-07-31T09:12:30.881Z",
+    "seitenUrl":   "https://example.org/entwurf",
+    "seitenTitel": "Entwurf Startseite",
+    "autor":       "Vorname Nachname",
+    "art":         "Text",
+    "aktion":      "neu",
+    "stelle":      "der markierte Wortlaut",
+    "kommentar":   "Bitte kürzen.",
+    "kommentarId": "amc1x2k3abcd",
+    "sitzung":     "sm9k2lqx7f",
+    "userAgent":   "Mozilla/5.0 …",
+    "sprache":     "de-DE",
+    "bildschirm":  "1440×900"
+  }]
+}
+```
+
+| Feld | Bedeutung |
+|---|---|
+| `art` | `Text`, `Element` oder `Punkt` |
+| `aktion` | `neu`, `geändert` oder `gelöscht` — die Gegenstelle kann die Zeile entsprechend anlegen, aktualisieren oder markieren |
+| `stelle` | markierter Wortlaut bzw. Element-Beschreibung („`section`: Über uns“) oder Punktposition („`img` (42%, 61%)“) |
+| `kommentarId` | stabile Annotations-`id` — **der Schlüssel zum Entdoppeln** |
+| `sitzung` | anonyme Sitzungskennung (siehe unten) |
+
+### Keine IP-Adresse
+
+Browser-JS kennt die eigene IP nicht, und ein Apps-Script-Web-App bekommt sie
+ebenfalls nicht zu sehen — sie wäre nur über einen vorgeschalteten Proxy
+(z. B. Cloudflare Worker) zu bekommen und ist als personenbezogenes Datum
+DSGVO-relevant. Stattdessen trägt jeder Eintrag eine **anonyme Sitzungskennung**
+(`sitzung`): eine Zufallszeichenkette, die die Meldungen eines Tabs gruppiert
+und mit dem Schließen des Tabs verfällt (`sessionStorage`, kein `localStorage`,
+kein Cookie, keine seitenübergreifende Wiedererkennung).
+
+Ist die Sammelstelle aktiv, benennt der „?“-Hilfetext das ausdrücklich — er
+listet auf, was verschickt wird, und dass keine IP dabei ist.
+
+### Warum „abschicken und gut“
+
+Der Versand nutzt `navigator.sendBeacon()`, ersatzweise `fetch(…, {mode:
+'no-cors', keepalive: true})` mit `Content-Type: text/plain`. Das ist Absicht:
+
+- **`text/plain` vermeidet die CORS-Vorabanfrage.** Ein Apps-Script-Web-App
+  kann auf `OPTIONS` keine CORS-Header liefern; mit `application/json` würde
+  der Browser preflighten und der Aufruf scheitern. Apps Script liest den
+  rohen Text über `e.postData.contents` — der JSON-Inhalt kommt unverändert an.
+- **Die Antwort ist nicht auswertbar.** `no-cors` liefert eine „opaque
+  response“; ob die Zeile wirklich geschrieben wurde, weiß der Browser nicht.
+  Deshalb der Knopf „Alle senden“ als Netz und `kommentarId` zum Entdoppeln.
+- **Kein Wiederholungs-Puffer.** Der Zustand bleibt im Speicher der Sitzung;
+  fehlgeschlagene Meldungen gehen beim Neuladen verloren. Wer Zustellung
+  garantieren will, exportiert zusätzlich JSON.
+
+---
+
 ## Layout: in-flow vs. schwebend (ganze Seite kommentieren)
 
 Standard (`notes: 'inline'`): das Werkzeug **umschließt den Container** und baut
@@ -297,6 +384,8 @@ ZIP hochladen) und aktivieren. Konfiguration über Filter:
 | `kommentare_elements` | bool | `true` |
 | `kommentare_points` | bool | `true` |
 | `kommentare_exclude` | string, `$is_admin` | Frontend `#wpadminbar`, Backend leer |
+| `kommentare_webhook` | string | leer (Sammelstelle aus) |
+| `kommentare_webhook_auto` | bool | `true` |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der

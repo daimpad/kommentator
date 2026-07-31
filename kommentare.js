@@ -14,6 +14,11 @@
          toolbar   : Selektor | Element    (optionaler Mount für die Aktionsleiste)
          readOnly  : Boolean               (nur ansehen, keine neuen Kommentare)
          texte     : Object                (überschreibt einzelne UI-Texte, i18n)
+         webhook   : String                (optionale https-Adresse, an die neue
+                                            Kommentare gemeldet werden, z. B. ein
+                                            Google-Apps-Script-Web-App. Leer = aus)
+         webhookAuto: Boolean              (automatisch bei jeder Änderung senden;
+                                            Standard: an, sobald webhook gesetzt ist)
          onCreate  : (anno) => void        (Callback nach dem Anlegen)
          onUpdate  : (anno) => void        (Callback nach dem Bearbeiten)
          onDelete  : (id)   => void        (Callback nach dem Löschen)
@@ -21,6 +26,7 @@
                                             um extern zu speichern – ohne Backend)
        }
      instanz.export()          -> JSON-String (nur eigene Kommentare)
+     instanz.send()            -> sendet alle eigenen Kommentare an den webhook
      instanz.import(jsonOrArr) -> führt Annotationen zusammen (dedupliziert nach id)
      instanz.getAnnotations()  -> Array (W3C-nahe Annotationen)
      instanz.destroy()         -> entfernt Markierungen, stellt DOM wieder her
@@ -72,6 +78,8 @@
       ["Herunterladen", "„Meine Kommentare herunterladen“ speichert die eigenen Kommentare als JSON-Datei."],
       ["Zusammenführen", "„Kommentare laden“ liest exportierte Dateien ein und führt sie zusammen (ohne Duplikate)."]
     ],
+    hilfeSenden: ["Senden", "Neue Kommentare gehen automatisch an die zentrale Tabelle; „Alle senden“ schickt sie noch einmal komplett."],
+    hilfeHinweisSenden: "Diese Seite meldet neue Kommentare an eine zentrale Tabelle: Kommentar, markierte Stelle, Name, Seiten-URL, Zeitpunkt sowie Browser, Sprache und Bildschirmgröße. Keine IP-Adresse — nur eine anonyme Sitzungskennung, die mit dem Schließen des Tabs verfällt.",
     hilfeHinweis: "Das Namensfeld ordnet Kommentare nur einer Person zu — es ist kein Zugriffsschutz. Beim Export werden die Seiten-URL und der Seitentitel mitgespeichert, damit erkennbar bleibt, zu welcher Seite die Kommentare gehören.",
     menuAria:           "Kommentar-Menü öffnen",
     menuTitel:          "Kommentator",
@@ -83,7 +91,18 @@
     punktBtn:           "Punkt anheften",
     punktBtnAktiv:      "Anheften beenden",
     punktAria:          "Punkt-Modus umschalten",
-    punktLabel:         "Punkt"
+    punktLabel:         "Punkt",
+    sendenBtn:          "Alle senden",
+    sendenTitel:        "Alle eigenen Kommentare an die zentrale Tabelle senden",
+    sendenOk:           "Gesendet",
+    sendenLeer:         "Nichts zu senden",
+    sendenFehler:       "Senden nicht möglich",
+    artText:            "Text",
+    artElement:         "Element",
+    artPunkt:           "Punkt",
+    aktionNeu:          "neu",
+    aktionGeaendert:    "geändert",
+    aktionGeloescht:    "gelöscht"
   };
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
@@ -113,6 +132,25 @@
       return "\\" + ch;
     });
   }
+  /* Anonyme Sitzungskennung: gruppiert die Meldungen einer Person, ohne sie zu
+     identifizieren (keine IP, kein Tracking über die Sitzung hinaus). Liegt in
+     sessionStorage, damit sie beim Blättern innerhalb eines Tabs stabil bleibt
+     und mit dem Schließen des Tabs verschwindet — kein localStorage. Ist der
+     Speicher gesperrt, gilt sie nur für diesen Seitenaufruf. */
+  var sitzungsFallback = null;
+  function sitzungsId() {
+    var neu = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    try {
+      var s = global.sessionStorage;
+      var v = s.getItem("kommentare-sitzung");
+      if (!v) { v = neu; s.setItem("kommentare-sitzung", v); }
+      return v;
+    } catch (_) {
+      if (!sitzungsFallback) sitzungsFallback = neu;
+      return sitzungsFallback;
+    }
+  }
+
   function commonPrefixLen(a, b) {
     var n = Math.min(a.length, b.length), i = 0;
     while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
@@ -172,6 +210,17 @@
       try { document.querySelector(options.exclude); this.exclude = String(options.exclude); }
       catch (_) { /* ungueltiger Selektor -> ignorieren statt spaeter zu werfen */ }
     }
+    // Optionale Meldestelle: jede Änderung wird zusätzlich an diese Adresse
+    // geschickt (z. B. ein Google-Apps-Script-Web-App vor einem Google Sheet).
+    // Leer = aus; das Werkzeug bleibt dann vollständig offline-fähig.
+    this.webhook = "";
+    if (options.webhook && /^https?:\/\//i.test(String(options.webhook))) {
+      this.webhook = String(options.webhook);
+    }
+    this.webhookAuto = options.webhookAuto !== false;
+    this._sitzung = sitzungsId();   // anonyme Sitzungskennung (keine IP)
+    this._sendTimer = null;
+
     this._mode = null;              // null | "element" | "point"
     this.pendingEl = null;          // {el, css, tag, fingerprint} für neue Element-Anno
     this.pendingPoint = null;       // {el, css, tag, fingerprint, rx, ry} für neuen Punkt
@@ -284,6 +333,15 @@
         emailBtn.type = "button"; emailBtn.textContent = T.emailBtn;
         dl.appendChild(emailBtn);
       }
+      // „Alle senden“ als Netz für den automatischen Versand (nur mit webhook)
+      var sendBtn = null;
+      if (this.webhook) {
+        sendBtn = el("button", "kommentare-btn kommentare-send");
+        sendBtn.type = "button";
+        sendBtn.textContent = T.sendenBtn;
+        sendBtn.title = T.sendenTitel;
+        dl.appendChild(sendBtn);
+      }
       actions.appendChild(dl);
 
       var countEl = el("span", "kommentare-count");
@@ -296,12 +354,14 @@
         exportBtn.classList.add("kommentare-hidden");
         mdBtn.classList.add("kommentare-hidden");
         if (emailBtn) emailBtn.classList.add("kommentare-hidden");
+        if (sendBtn) sendBtn.classList.add("kommentare-hidden");
       }
       this._helpBtn = helpBtn;
       this._themeBtn = themeBtn;
       this._mdBtn = mdBtn;
       this._printBtn = printBtn;
       this._emailBtn = emailBtn;
+      this._sendBtn = sendBtn;
 
       // Randspalte
       var margin = el("aside", "kommentare-margin kommentare-scope");
@@ -344,14 +404,20 @@
         helpClose.setAttribute("aria-label", T.hilfeSchliessen);
         var helpH = el("h2", "kommentare-help-title"); helpH.textContent = T.hilfeTitel;
         var helpList = el("ol", "kommentare-help-list");
-        (T.hilfeSchritte || []).forEach(function (s) {
+        var schritte = (T.hilfeSchritte || []).slice();
+        if (this.webhook && T.hilfeSenden) schritte.push(T.hilfeSenden);
+        schritte.forEach(function (s) {
           var li = el("li");
           var b = el("b"); b.textContent = s[0];
           li.appendChild(b);
           li.appendChild(document.createTextNode(" — " + s[1]));
           helpList.appendChild(li);
         });
-        var helpNote = el("p", "kommentare-help-note"); helpNote.textContent = T.hilfeHinweis;
+        var helpNote = el("p", "kommentare-help-note");
+        // Bei aktiver Meldestelle transparent machen, was die Seite verschickt.
+        helpNote.textContent = (this.webhook && T.hilfeHinweisSenden)
+          ? T.hilfeHinweisSenden + " " + T.hilfeHinweis
+          : T.hilfeHinweis;
         box.appendChild(helpClose);
         box.appendChild(helpH);
         box.appendChild(helpList);
@@ -536,12 +602,14 @@
       this._onMdClick = function () { self._downloadMarkdown(); };
       this._onPrintClick = function () { self._print(); };
       this._onEmailClick = function () { self._email(); };
+      this._onSendClick = function () { self.send(); };
       this._onFileChange = function (e) { self._readFiles(e); };
       this._importBtn.addEventListener("click", this._onImportClick);
       this._exportBtn.addEventListener("click", this._onExportClick);
       this._mdBtn.addEventListener("click", this._onMdClick);
       this._printBtn.addEventListener("click", this._onPrintClick);
       if (this._emailBtn) this._emailBtn.addEventListener("click", this._onEmailClick);
+      if (this._sendBtn) this._sendBtn.addEventListener("click", this._onSendClick);
       this._fileIn.addEventListener("change", this._onFileChange);
 
       // Hilfe-Panel
@@ -1180,6 +1248,7 @@
         this._closeCompose();
         this._render();
         if (this.onUpdate) this.onUpdate(toW3C(a));
+        this._webhookAuto(a, this.texte.aktionGeaendert);
         this._emitChange();
         return;
       }
@@ -1197,6 +1266,7 @@
         this._closeCompose();
         this._render();
         if (this.onCreate) this.onCreate(toW3C(eanno));
+        this._webhookAuto(eanno);
         this._emitChange();
         return;
       }
@@ -1214,6 +1284,7 @@
         this._closeCompose();
         this._render();
         if (this.onCreate) this.onCreate(toW3C(panno));
+        this._webhookAuto(panno);
         this._emitChange();
         return;
       }
@@ -1232,6 +1303,7 @@
       this._closeCompose();
       this._render();
       if (this.onCreate) this.onCreate(toW3C(anno));
+      this._webhookAuto(anno);
       this._emitChange();
     },
 
@@ -1349,6 +1421,7 @@
     },
 
     _removeAnno: function (id) {
+      var weg = this.annos.get(id); // vor dem Löschen merken (für die Meldung)
       this.annos.delete(id);
       var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
       if (m) {
@@ -1359,6 +1432,7 @@
       }
       this._render();
       if (this.onDelete) this.onDelete(id);
+      this._webhookAuto(weg, this.texte.aktionGeloescht);
       this._emitChange();
     },
 
@@ -1410,6 +1484,88 @@
       if (!this.email) return;
       this._downloadJSON();
       if (global.location) global.location.href = this._mailtoHref();
+    },
+
+    /* ---- Meldestelle (webhook) --------------------------------------- */
+    // Eine Annotation als flache Zeile — genau so, wie sie in einer Tabelle
+    // (Google Sheet, Airtable, CSV) landen soll.
+    _webhookEntry: function (a, aktion) {
+      var T = this.texte;
+      var art, stelle;
+      if (a.kind === "element") {
+        art = T.artElement;
+        stelle = (a.tag || "") + (a.fingerprint ? ": " + a.fingerprint : "");
+      } else if (a.kind === "point") {
+        art = T.artPunkt;
+        stelle = (a.tag || "") + " (" + Math.round((a.rx || 0) * 100) + "%, " +
+                 Math.round((a.ry || 0) * 100) + "%)";
+      } else {
+        art = T.artText;
+        stelle = a.quote || "";
+      }
+      var nav = global.navigator || {};
+      var scr = global.screen || {};
+      return {
+        zeitpunkt:    new Date().toISOString(),
+        erstellt:     a.created || "",
+        seitenUrl:    global.location ? global.location.href : "",
+        seitenTitel:  (global.document && document.title) || "",
+        autor:        a.author || "",
+        art:          art,
+        aktion:       aktion || T.aktionNeu,
+        stelle:       stelle,
+        kommentar:    a.body || "",
+        kommentarId:  a.id,
+        sitzung:      this._sitzung,
+        userAgent:    nav.userAgent || "",
+        sprache:      nav.language || "",
+        bildschirm:   (scr.width || 0) + "×" + (scr.height || 0)
+      };
+    },
+    // Absenden ohne CORS-Vorabanfrage: 'text/plain' vermeidet den Preflight,
+    // den ein Google-Apps-Script-Web-App nicht beantworten kann. Die Antwort
+    // ist dadurch nicht lesbar — der Versand ist bewusst „abschicken und gut“.
+    _webhookSend: function (entries) {
+      if (!this.webhook || !entries || !entries.length) return false;
+      var payload = JSON.stringify({
+        generator: "kommentar-tool",
+        version: 1,
+        gesendet: new Date().toISOString(),
+        eintraege: entries
+      });
+      try {
+        if (global.navigator && global.navigator.sendBeacon) {
+          var blob = new Blob([payload], { type: "text/plain;charset=UTF-8" });
+          if (global.navigator.sendBeacon(this.webhook, blob)) return true;
+        }
+      } catch (_) { /* weiter mit fetch */ }
+      try {
+        global.fetch(this.webhook, {
+          method: "POST",
+          mode: "no-cors",
+          keepalive: true,
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: payload
+        })["catch"](function () { /* Fehler sind nicht auswertbar */ });
+        return true;
+      } catch (_) { return false; }
+    },
+    // Automatischer Versand nach jeder eigenen Änderung (falls eingeschaltet).
+    _webhookAuto: function (a, aktion) {
+      if (!this.webhook || !this.webhookAuto || !a) return;
+      this._webhookSend([this._webhookEntry(a, aktion)]);
+    },
+    // Kurze Rückmeldung am Knopf (eine Antwort vom Server gibt es nicht).
+    _sendFeedback: function (text) {
+      var btn = this._sendBtn;
+      if (!btn) return;
+      var self = this;
+      if (this._sendTimer) global.clearTimeout(this._sendTimer);
+      btn.textContent = text;
+      this._sendTimer = global.setTimeout(function () {
+        btn.textContent = self.texte.sendenBtn;
+        self._sendTimer = null;
+      }, 2500);
     },
 
     _readFiles: function (e) {
@@ -1496,6 +1652,22 @@
       return added;
     },
 
+    // Alle eigenen Kommentare an die Meldestelle schicken. Netz für den
+    // automatischen Versand: Doppelte fängt die Gegenstelle über die
+    // Kommentar-ID ab (siehe Apps-Script-Beispiel in der Dokumentation).
+    send: function () {
+      var self = this, T = this.texte;
+      if (!this.webhook) return 0;
+      var mine = this._sortByTop(Array.from(this.annos.values())
+        .filter(function (a) { return a.author === self.autor; }));
+      if (!mine.length) { this._sendFeedback(T.sendenLeer); return 0; }
+      var ok = this._webhookSend(mine.map(function (a) {
+        return self._webhookEntry(a, T.aktionNeu);
+      }));
+      this._sendFeedback(ok ? T.sendenOk + " (" + mine.length + ")" : T.sendenFehler);
+      return ok ? mine.length : 0;
+    },
+
     getAnnotations: function () {
       return Array.from(this.annos.values()).map(toW3C);
     },
@@ -1516,6 +1688,7 @@
         global.removeEventListener("resize", this._onRepos);
       }
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      if (this._sendTimer) { global.clearTimeout(this._sendTimer); this._sendTimer = null; }
       if (this._mq && this._onMqChange) {
         if (this._mq.removeEventListener) this._mq.removeEventListener("change", this._onMqChange);
         else if (this._mq.removeListener) this._mq.removeListener(this._onMqChange);

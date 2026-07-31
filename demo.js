@@ -34,6 +34,10 @@
       themeToggle: true,         // ☾/☀ im Menü
       theme: currentTheme,
       email: "kontakt@nozilla.de", // „Per E-Mail senden“ öffnet Entwurf an diese Adresse
+      // Zentrale Sammelstelle (optional, hier bewusst aus): mit einer Adresse
+      // landen neue Kommentare automatisch in einer Tabelle, z. B. einem Google
+      // Sheet hinter einem Apps-Script-Web-App. Siehe TUTORIAL.md, Abschnitt 8.
+      //   webhook: "https://script.google.com/macros/s/…/exec",
       onThemeChange: applyPageTheme // Demo-Seite mitfärben
     });
   }

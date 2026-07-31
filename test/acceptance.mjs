@@ -615,6 +615,133 @@ check("Editor-Schutz: Auswahl in contenteditable kommentiert nicht", editable.co
 check("Editor-Schutz: normaler Text weiterhin kommentierbar", editable.freierText === true);
 check("Editor-Schutz: Editor-Bereich bleibt als Element kommentierbar", editable.elementZiel === true);
 
+// --- Meldestelle (webhook): automatischer Versand + „Alle senden“ ---------
+const HOOK = "https://beispiel.test/webhook";
+const gesendet = [];
+await page.route(HOOK, async (route) => {
+  gesendet.push(route.request().postData() || "");
+  await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+});
+async function warteAufMeldungen(n) {
+  for (let i = 0; i < 50 && gesendet.length < n; i++) await page.waitForTimeout(100);
+  return gesendet.length;
+}
+
+await load();
+check("Webhook: ohne Adresse kein „Alle senden“-Knopf",
+  (await page.locator(".kommentare-send").count()) === 0);
+
+const hook = await page.evaluate((url) => {
+  const host = document.createElement("div");
+  host.id = "hookhost";
+  host.innerHTML = "<p>Ein Satz zum Melden.</p>";
+  document.body.appendChild(host);
+  const inst = window.Kommentare.init({
+    container: "#hookhost", notes: "floating", autor: "Melder", webhook: url
+  });
+  const tn = host.querySelector("p").firstChild;
+  const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  inst._composeText.value = "Bitte prüfen.";
+  inst._saveComment();                       // -> automatischer Versand
+  const knopf = inst._sendBtn ? inst._sendBtn.textContent : "";
+  inst.send();                               // -> „Alle senden“
+  const rueckmeldung = inst._sendBtn ? inst._sendBtn.textContent : "";
+  const hinweis = inst._helpEl
+    ? inst._helpEl.querySelector(".kommentare-help-note").textContent : "";
+  const schritte = inst._helpEl
+    ? [...inst._helpEl.querySelectorAll(".kommentare-help-list li b")].map((b) => b.textContent) : [];
+  window.hookInstanz = inst;
+  return { knopf, rueckmeldung, hinweis, schritte, sitzung: inst._sitzung };
+}, HOOK);
+
+check("Webhook: „Alle senden“-Knopf vorhanden", hook.knopf === "Alle senden");
+check("Webhook: Knopf meldet den Versand zurück", hook.rueckmeldung === "Gesendet (1)");
+check("Webhook: Hilfe nennt den Sende-Schritt", hook.schritte.includes("Senden"));
+check("Webhook: Hilfe weist auf den Datenversand hin",
+  hook.hinweis.includes("zentrale Tabelle") && hook.hinweis.includes("Keine IP-Adresse"));
+
+check("Webhook: automatischer Versand + „Alle senden“ erreichen die Adresse",
+  (await warteAufMeldungen(2)) === 2);
+const meldung = JSON.parse(gesendet[0] || "{}");
+const eintrag = (meldung.eintraege || [])[0] || {};
+check("Webhook: Nutzlast ist JSON mit eintraege[]",
+  meldung.generator === "kommentar-tool" && (meldung.eintraege || []).length === 1);
+check("Webhook: Eintrag trägt Kommentar, Stelle und Art",
+  eintrag.kommentar === "Bitte prüfen." &&
+  eintrag.stelle === "Ein Satz zum Melden." && eintrag.art === "Text");
+check("Webhook: Eintrag trägt Seiten-URL, Titel, Autor:in und Zeitpunkt",
+  typeof eintrag.seitenUrl === "string" && eintrag.seitenUrl.length > 0 &&
+  typeof eintrag.seitenTitel === "string" &&
+  eintrag.autor === "Melder" && /^\d{4}-\d{2}-\d{2}T/.test(eintrag.zeitpunkt || ""));
+check("Webhook: Eintrag trägt anonyme Sitzungs-ID statt IP",
+  eintrag.sitzung === hook.sitzung && hook.sitzung.length > 1 &&
+  !("ip" in eintrag) && !/\bip\b/i.test(Object.keys(eintrag).join(",")));
+check("Webhook: Eintrag trägt Browser-Angaben",
+  typeof eintrag.userAgent === "string" && eintrag.userAgent.length > 0 &&
+  /^\d+×\d+$/.test(eintrag.bildschirm || "") && "sprache" in eintrag);
+check("Webhook: Kommentar-ID erlaubt der Gegenstelle das Entdoppeln",
+  !!eintrag.kommentarId && eintrag.aktion === "neu");
+
+// Löschen meldet sich als eigene Aktion (damit die Zeile markiert werden kann)
+const geloescht = await page.evaluate(() => {
+  const inst = window.hookInstanz;
+  const id = [...inst.annos.keys()][0];
+  inst._removeAnno(id);
+  return id;
+});
+await warteAufMeldungen(3);
+const letzte = JSON.parse(gesendet[gesendet.length - 1] || "{}");
+check("Webhook: Löschen meldet aktion=gelöscht",
+  ((letzte.eintraege || [])[0] || {}).aktion === "gelöscht" &&
+  ((letzte.eintraege || [])[0] || {}).kommentarId === geloescht);
+
+// webhookAuto:false -> kein automatischer Versand, „Alle senden“ weiterhin
+const vorherAus = gesendet.length;
+const manuell = await page.evaluate((url) => {
+  window.hookInstanz.destroy();
+  document.getElementById("hookhost").remove();
+  const host = document.createElement("div");
+  host.id = "hookhost2";
+  host.innerHTML = "<p>Noch ein Satz.</p>";
+  document.body.appendChild(host);
+  const inst = window.Kommentare.init({
+    container: "#hookhost2", notes: "floating", autor: "Melder",
+    webhook: url, webhookAuto: false
+  });
+  const tn = host.querySelector("p").firstChild;
+  const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, tn.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  inst._composeText.value = "Ohne Automatik.";
+  inst._saveComment();
+  window.hookInstanz2 = inst;
+  return true;
+}, HOOK);
+await page.waitForTimeout(300);
+check("Webhook: webhookAuto:false sendet nicht automatisch",
+  manuell === true && gesendet.length === vorherAus);
+await page.evaluate(() => window.hookInstanz2.send());
+check("Webhook: „Alle senden“ funktioniert auch ohne Automatik",
+  (await warteAufMeldungen(vorherAus + 1)) === vorherAus + 1);
+
+// Ungültige/nicht-https Adressen werden ignoriert (kein Knopf, kein Versand)
+const ungueltig = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "hookhost3"; host.innerHTML = "<p>Text.</p>";
+  document.body.appendChild(host);
+  const inst = window.Kommentare.init({
+    container: "#hookhost3", notes: "floating", autor: "X", webhook: "javascript:alert(1)"
+  });
+  const res = { webhook: inst.webhook, knopf: !!inst._sendBtn };
+  inst.destroy(); host.remove();
+  window.hookInstanz2.destroy(); document.getElementById("hookhost2").remove();
+  return res;
+});
+check("Webhook: nur http(s)-Adressen werden übernommen",
+  ungueltig.webhook === "" && ungueltig.knopf === false);
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");
