@@ -18,7 +18,8 @@ interne Funktionsweise des Kommentar-Werkzeugs.
 | `demo.js` | ausgelagerter Start-Code der Demo-Seite (nur für die Demo) |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` (für GitHub Pages) |
 | `wordpress/kommentare-tool/` | installierbares WordPress-Plugin (bündelt die Assets) |
-| `test/acceptance.mjs` | Headless-Akzeptanztest (Playwright) |
+| `test/acceptance.mjs` | Headless-Akzeptanztest des Werkzeugs (Playwright) |
+| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungen, Filter-Vorrang) — ohne WordPress |
 
 Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten**,
 **kein `localStorage`**. Der Zustand lebt im Speicher der Sitzung.
@@ -366,26 +367,51 @@ Kommentare.init({
 ## WordPress-Plugin
 
 Ordner `wordpress/kommentare-tool/` nach `wp-content/plugins/` kopieren (oder als
-ZIP hochladen) und aktivieren. Konfiguration über Filter:
+ZIP hochladen) und aktivieren.
+
+### Einstellungsseite (Einstellungen → Kommentator)
+
+Das Wesentliche ist im Backend eintragbar — ohne `functions.php`. Gespeichert
+wird als **eine** Option `kommentare_optionen` (Array):
+
+| Schlüssel | Typ | Standard | Bedeutung |
+|---|---|---|---|
+| `webhook` | string | leer | Adresse der zentralen Sammelstelle; leer = aus |
+| `webhook_auto` | 0/1 | `1` | automatisch bei jeder Änderung melden |
+| `container` | string | `body` | kommentierbarer Bereich (CSS-Selektor) |
+| `email` | string | leer | Empfänger für „Per E-Mail senden“ |
+| `frontend` | 0/1 | `1` | im Frontend laden |
+| `backend` | 0/1 | `1` | in wp-admin laden |
+
+Beim Speichern geprüft (`kommentare_optionen_pruefen()`): `webhook` nur `http(s)`
+(`esc_url_raw` mit Schema-Whitelist), `email` über `sanitize_email`, `container`
+über `sanitize_text_field` mit Rückfall auf `body`. Abgelehnte Eingaben melden
+sich über `add_settings_error` sichtbar, statt still verworfen zu werden.
+
+### Filter
+
+Die Filter bleiben die vollständige Konfigurationsebene und haben **Vorrang**:
+die gespeicherte Einstellung ist jeweils nur der Vorgabewert, den der Filter
+bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 
 | Filter | Typ | Standard |
 |---|---|---|
-| `kommentare_container_selector` | string | `body` (ganze Seite inkl. Header/Footer) |
+| `kommentare_container_selector` | string | Einstellung `container` (`body`) |
 | `kommentare_notes` | string | `floating` (Notizen schweben; `inline` = Randspalte) |
-| `kommentare_should_load` | bool | `true` (Frontend, alle Seiten) |
-| `kommentare_should_load_admin` | bool, `$hook` | `true` (Backend, alle wp-admin-Seiten) |
+| `kommentare_should_load` | bool | Einstellung `frontend` (`true`) |
+| `kommentare_should_load_admin` | bool, `$hook` | Einstellung `backend` (`true`) |
 | `kommentare_autor` | string | Anzeigename bzw. „Gast“ |
 | `kommentare_read_only` | bool | `false` |
 | `kommentare_help` | bool | `true` |
 | `kommentare_theme_toggle` | bool | `true` |
 | `kommentare_toolbar_mode` | string | `floating` |
 | `kommentare_resizable` | bool | `true` |
-| `kommentare_email` | string | leer (Button aus) |
+| `kommentare_email` | string | Einstellung `email` (leer = Button aus) |
 | `kommentare_elements` | bool | `true` |
 | `kommentare_points` | bool | `true` |
 | `kommentare_exclude` | string, `$is_admin` | Frontend `#wpadminbar`, Backend leer |
-| `kommentare_webhook` | string | leer (Sammelstelle aus) |
-| `kommentare_webhook_auto` | bool | `true` |
+| `kommentare_webhook` | string | Einstellung `webhook` (leer = aus) |
+| `kommentare_webhook_auto` | bool | Einstellung `webhook_auto` (`true`) |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der
@@ -458,7 +484,8 @@ Floating-Menü, ziehbare Spalte und das Demo-Modal ab.
 ```bash
 npm install            # installiert playwright (devDependency)
 npx playwright install chromium
-npm test
+npm test               # Werkzeug + Plugin-Logik
+npm run test-plugin    # nur die Plugin-Logik (uebersprungen ohne PHP)
 ```
 
 Optional mit vorinstalliertem Chromium:

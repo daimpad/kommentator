@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.10.0
+Stable tag: 1.11.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -45,6 +45,22 @@ Hinweis: In Eingabefeldern und Editoren (Textfelder, Block-Editor) löst das
 Markieren von Text absichtlich keinen Kommentar aus – dort schreibt man. Solche
 Bereiche lassen sich weiterhin über „Element kommentieren" oder „Punkt anheften"
 kommentieren.
+
+== Einstellungen (Backend) ==
+
+Unter **Einstellungen → Kommentator** lässt sich das Wesentliche eintragen,
+ohne Code anzufassen:
+
+* **Adresse der Sammelstelle** – leer = aus (dann verlässt kein Kommentar den
+  Browser). Mit Adresse landen neue Kommentare automatisch in der Tabelle.
+* **Automatisch melden** – aus = nur der Knopf „Alle senden" schickt.
+* **Laden im Frontend / im Backend** – je einzeln an- und abschaltbar.
+* **Kommentierbarer Bereich** – CSS-Selektor, Standard `body`.
+* **E-Mail-Empfänger** – für „Per E-Mail senden"; leer = Knopf aus.
+
+Die Filter unten funktionieren unverändert weiter und haben **Vorrang**: die
+gespeicherte Einstellung ist nur der Vorgabewert. Wer schon per functions.php
+konfiguriert hat, muss nichts ändern.
 
 == Anpassung (Filter) ==
 
@@ -94,6 +110,19 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.11.0 =
+* Neu: Einstellungsseite unter „Einstellungen → Kommentator". Adresse der
+  Sammelstelle, automatischer Versand, kommentierbarer Bereich, E-Mail-Empfänger
+  und ob im Frontend/Backend geladen wird — alles im Backend eintragbar, ohne
+  die functions.php anzufassen.
+* „Einstellungen"-Link direkt in der Plugin-Liste.
+* Die Filter bleiben unverändert bestehen und haben weiterhin Vorrang: die
+  gespeicherte Einstellung ist nur der Vorgabewert. Bestehende Einbindungen per
+  functions.php funktionieren also unverändert weiter.
+* Eingaben werden geprüft: die Sammelstelle nimmt nur http(s)-Adressen an,
+  ungültige Eingaben werden mit sichtbarem Hinweis abgelehnt statt still
+  geschluckt.
 
 = 1.10.0 =
 * Neu: zentrale Sammelstelle. Mit dem Filter kommentare_webhook gehen neue

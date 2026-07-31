@@ -157,16 +157,32 @@ sodass klar bleibt, zu welcher Seite sie gehört.
 > Diese Bereiche lassen sich über **„Element kommentieren"** oder **„Punkt
 > anheften"** kommentieren.
 
-Anpassen (in der `functions.php` deines Themes), z. B. Backend-Kommentare
-abschalten, anderer Container oder nur für eingeloggte Nutzer:innen:
+### Einstellen — ohne Code
+
+**Einstellungen → Kommentator** (oder der Link *Einstellungen* in der
+Plugin-Liste). Dort lässt sich eintragen:
+
+| Feld | Wofür |
+|---|---|
+| **Adresse der Sammelstelle** | Kommentare in einer zentralen Tabelle sammeln (siehe [Abschnitt 8](#8-kommentare-in-einem-google-sheet-sammeln)); leer = aus |
+| **Jede Änderung automatisch melden** | aus = nur der Knopf „Alle senden" schickt |
+| **Laden im Frontend / im Backend** | je einzeln abschaltbar |
+| **Kommentierbarer Bereich** | CSS-Selektor; Standard `body` = ganze Seite. Nur der Inhalt: `.wp-block-post-content` |
+| **E-Mail-Empfänger** | für „Per E-Mail senden"; leer = Knopf aus |
+
+### Feiner justieren — per Filter
+
+Alles Weitere (Element-/Punkt-Kommentare, Theme-Umschalter, Nur-Lesen, eigene
+Texte) läuft über Filter in der `functions.php` deines Themes. Ein Filter hat
+dabei immer **Vorrang** vor der gespeicherten Einstellung:
 
 ```php
-// nur im Frontend kommentieren
-add_filter('kommentare_should_load_admin', '__return_false');
-// nur den Beitragsinhalt statt der ganzen Seite
-add_filter('kommentare_container_selector', fn() => '.wp-block-post-content');
 // nur für eingeloggte Nutzer:innen
 add_filter('kommentare_should_load', fn($load) => $load && is_user_logged_in());
+// Punkt-Kommentare abschalten
+add_filter('kommentare_points', '__return_false');
+// nur ansehen, keine neuen Kommentare
+add_filter('kommentare_read_only', '__return_true');
 ```
 
 Weitere Filter: siehe `wordpress/kommentare-tool/readme.txt` und die
@@ -326,13 +342,20 @@ Kommentare.init({
 });
 ```
 
-**WordPress** (`functions.php` des Themes):
+**WordPress** — einfach im Backend: **Einstellungen → Kommentator**, Adresse ins
+Feld *Adresse* eintragen, speichern. Fertig, kein Code nötig.
+
+<details>
+<summary>Alternativ per <code>functions.php</code> (falls du die Adresse lieber im Theme führst)</summary>
 
 ```php
 add_filter('kommentare_webhook', function () {
     return 'https://script.google.com/macros/s/AKfycb…/exec';
 });
 ```
+
+Der Filter hat Vorrang vor der gespeicherten Einstellung.
+</details>
 
 Fertig. Ab jetzt landet jeder neue, geänderte und gelöschte Kommentar
 automatisch als Zeile in der Tabelle — von jeder Seite, auf der das Werkzeug

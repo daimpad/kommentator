@@ -4,7 +4,8 @@
   "description": "Einbindbares, statisches Kommentar-Werkzeug: Textstellen markieren, kommentieren, als JSON exportieren und zusammenführen. Kein Build, keine Abhängigkeiten.",
   "license": "MIT",
   "scripts": {
-    "test": "node test/acceptance.mjs",
+    "test": "node test/acceptance.mjs && npm run test-plugin",
+    "test-plugin": "command -v php >/dev/null && php test/plugin-einstellungen.php || echo 'PHP nicht vorhanden — Plugin-Test uebersprungen'",
     "sync-plugin-assets": "cp kommentare.css kommentare.js wordpress/kommentare-tool/assets/",
     "build-plugin": "./scripts/build-plugin-zip.sh"
   },

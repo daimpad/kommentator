@@ -17,7 +17,8 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 | `demo.html` / `demo.js` | Demo-Seite (Namens-Modal, Floating-Menü, Info-Modal). `demo.js` ist **nur** Demo-Glue, nicht Teil des Werkzeugs. |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` für GitHub Pages. |
 | `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. |
-| `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Einzige Testquelle. |
+| `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Testquelle fürs Werkzeug. |
+| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungsseite, Filter-Vorrang) gegen eine WordPress-Attrappe. Läuft mit, wenn PHP vorhanden ist. |
 | `README.md` | Schicke Landingpage. | 
 | `TECHNISCHE_DOKUMENTATION.md` | API, Datenmodell, Theming, Filter, Tests. |
 | `TUTORIAL.md` | Schritt-für-Schritt Nutzung/Installation/Deploy. |
@@ -57,7 +58,8 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 ```bash
 npm install
 npx playwright install chromium
-npm test          # = node test/acceptance.mjs
+npm test          # Werkzeug (Playwright) + Plugin-Logik (PHP)
+npm run test-plugin  # nur die Plugin-Logik
 ```
 
 Der Test lädt `demo.html`. Die Demo zeigt beim Laden ein **Namens-Modal**; im
