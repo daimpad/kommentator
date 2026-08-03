@@ -28,6 +28,7 @@ function plugin_basename($f) { return 'kommentare-tool/kommentare-tool.php'; }
 function plugin_dir_url($f) { return 'https://example.org/wp-content/plugins/kommentare-tool/'; }
 function get_option($k, $d = false) { return $GLOBALS['opt'][$k] ?? $d; }
 function update_option($k, $v) { $GLOBALS['opt'][$k] = $v; }
+function delete_option($k) { unset($GLOBALS['opt'][$k]); }
 function register_setting($g, $n, $a = array()) {}
 function add_options_page() {}
 function current_user_can($c) { return true; }
@@ -72,7 +73,12 @@ $c = kommentare_build_config(false);
 pruef('Vorgabe: webhook leer', $c['webhook'] === '');
 pruef('Vorgabe: webhookAuto an', $c['webhookAuto'] === true);
 pruef('Vorgabe: container body', $c['container'] === 'body');
-pruef('Vorgabe: Frontend + Backend laden', kommentare_should_load() && kommentare_should_load_admin('index.php'));
+// Vorgabe: Backend immer, Frontend nur für angemeldete Nutzer:innen
+pruef('Vorgabe: Backend lädt', kommentare_should_load_admin('index.php') === true);
+$GLOBALS['eingeloggt'] = true;
+pruef('Vorgabe: Frontend lädt für Angemeldete', kommentare_should_load() === true);
+$GLOBALS['eingeloggt'] = false;
+pruef('Vorgabe: Frontend lädt NICHT für Gäste', kommentare_should_load() === false);
 
 // 2) Prüfung der Eingaben
 $s = kommentare_optionen_pruefen(array(
@@ -114,8 +120,21 @@ pruef('Nur-eingeloggt: angemeldet bekommt es', kommentare_should_load() === true
 $GLOBALS['eingeloggt'] = false;
 update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 0));
 pruef('Nur-eingeloggt: ohne Haken bleibt es öffentlich', kommentare_should_load() === true);
-pruef('Nur-eingeloggt: Vorgabe ist aus (Verhalten bleibt wie bisher)',
-    kommentare_standard_optionen()['nur_eingeloggt'] === 0);
+pruef('Nur-eingeloggt: Vorgabe ist AN (sichere Voreinstellung)',
+    kommentare_standard_optionen()['nur_eingeloggt'] === 1);
+// Frische Installation ohne gespeicherte Optionen: Gast bleibt draußen
+delete_option('kommentare_optionen');
+$GLOBALS['eingeloggt'] = false;
+pruef('Nur-eingeloggt: frische Installation schließt Gäste aus',
+    kommentare_should_load() === false);
+$GLOBALS['eingeloggt'] = true;
+pruef('Nur-eingeloggt: frische Installation lädt für Angemeldete',
+    kommentare_should_load() === true);
+$GLOBALS['eingeloggt'] = false;
+// Wer den Haken bewusst entfernt hat, behält seine Einstellung
+update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 0));
+pruef('Nur-eingeloggt: bewusst abgewählt bleibt abgewählt',
+    kommentare_should_load() === true);
 $s2 = kommentare_optionen_pruefen(array('nur_eingeloggt' => '1'));
 pruef('Nur-eingeloggt: Haken wird gespeichert', $s2['nur_eingeloggt'] === 1);
 update_option('kommentare_optionen', array(

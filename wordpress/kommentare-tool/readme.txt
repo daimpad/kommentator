@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -55,10 +55,11 @@ ohne Code anzufassen:
   Browser). Mit Adresse landen neue Kommentare automatisch in der Tabelle.
 * **Automatisch melden** – aus = nur der Knopf „Alle senden" schickt.
 * **Laden im Frontend / im Backend** – je einzeln an- und abschaltbar.
-* **Im Frontend nur angemeldete Nutzer:innen** – empfohlen, sobald eine
-  Sammelstelle eingetragen ist. Die Adresse steht im Seitenquelltext und lässt
-  sich nicht geheim halten; ohne diesen Haken kann auf einer öffentlichen Seite
-  jede:r in deine Tabelle schreiben.
+* **Im Frontend nur angemeldete Nutzer:innen** – **ab Werk eingeschaltet.** Die
+  Adresse der Sammelstelle steht im Seitenquelltext und lässt sich nicht geheim
+  halten; ohne diesen Haken könnte auf einer öffentlichen Seite jede:r in deine
+  Tabelle schreiben. Nur abhaken, wenn Rückmeldungen von nicht angemeldeten
+  Personen ausdrücklich erwünscht sind.
 * **Kommentierbarer Bereich** – CSS-Selektor, Standard `body`.
 * **E-Mail-Empfänger** – für „Per E-Mail senden"; leer = Knopf aus.
 
@@ -114,6 +115,19 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.13.0 =
+* Geändert: „Im Frontend nur angemeldete Nutzer:innen" ist jetzt die VORGABE
+  (vorher aus). Das Werkzeug erscheint im Frontend damit nur noch für
+  angemeldete Personen – sicher voreingestellt, weil die Adresse der
+  Sammelstelle im Seitenquelltext steht.
+* WICHTIG BEIM UPDATE: Wer die Einstellungen noch nie gespeichert hat, sieht
+  das Werkzeug im Frontend danach nur noch angemeldet. Sollen weiterhin alle
+  Besucher:innen kommentieren, den Haken unter Einstellungen → Kommentator
+  entfernen und speichern. Wer den Haken unter 1.12.0 bereits bewusst gesetzt
+  oder entfernt hat, behält seine Einstellung.
+* Der Hinweistext auf der Einstellungsseite benennt Vorgabe und Folgen jetzt
+  ausdrücklich.
 
 = 1.12.0 =
 * Neu: Einstellung „Im Frontend nur angemeldete Nutzer:innen". Wichtig, sobald
