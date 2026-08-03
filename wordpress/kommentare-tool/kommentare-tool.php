@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.12.0
+ * Version:           1.13.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -27,7 +27,7 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.12.0');
+define('KOMMENTARE_VERSION', '1.13.0');
 
 /* ===========================================================================
  * EINSTELLUNGEN (Einstellungen → Kommentator)
@@ -46,7 +46,10 @@ function kommentare_standard_optionen() {
         'container'    => 'body',  // kommentierbarer Bereich
         'frontend'     => 1,       // im Frontend laden
         'backend'      => 1,       // in wp-admin laden
-        'nur_eingeloggt' => 0,     // im Frontend nur für angemeldete Nutzer:innen
+        // Im Frontend nur für angemeldete Nutzer:innen — sichere Vorgabe:
+        // die Adresse der Sammelstelle steht im Seitenquelltext, eine offene
+        // Seite wäre damit eine offene Schreibberechtigung auf die Tabelle.
+        'nur_eingeloggt' => 1,
     );
 }
 
@@ -220,7 +223,7 @@ function kommentare_einstellungsseite() {
                             <?php esc_html_e('Im Frontend nur angemeldete Nutzer:innen', 'kommentare'); ?>
                         </label>
                         <p class="description">
-                            <?php esc_html_e('Ohne Haken sehen und nutzen alle Besucher:innen das Werkzeug. Auf einer öffentlichen Seite mit Sammelstelle heißt das: jede:r kann in deine Tabelle schreiben — die Adresse steht im Seitenquelltext und lässt sich nicht geheim halten.', 'kommentare'); ?>
+                            <?php esc_html_e('Standard: an. Ohne Haken sehen und nutzen alle Besucher:innen das Werkzeug — auf einer öffentlichen Seite mit Sammelstelle heißt das: jede:r kann in deine Tabelle schreiben, denn die Adresse steht im Seitenquelltext und lässt sich nicht geheim halten. Den Haken nur entfernen, wenn Rückmeldungen von nicht angemeldeten Personen ausdrücklich erwünscht sind.', 'kommentare'); ?>
                         </p>
                     </td>
                 </tr>

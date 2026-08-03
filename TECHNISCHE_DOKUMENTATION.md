@@ -404,7 +404,7 @@ wird als **eine** Option `kommentare_optionen` (Array):
 | `container` | string | `body` | kommentierbarer Bereich (CSS-Selektor) |
 | `email` | string | leer | Empfänger für „Per E-Mail senden“ |
 | `frontend` | 0/1 | `1` | im Frontend laden |
-| `nur_eingeloggt` | 0/1 | `0` | im Frontend nur für angemeldete Nutzer:innen |
+| `nur_eingeloggt` | 0/1 | **`1`** | im Frontend nur für angemeldete Nutzer:innen (sichere Vorgabe) |
 | `backend` | 0/1 | `1` | in wp-admin laden |
 
 Beim Speichern geprüft (`kommentare_optionen_pruefen()`): `webhook` nur `http(s)`
@@ -422,7 +422,7 @@ bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 |---|---|---|
 | `kommentare_container_selector` | string | Einstellung `container` (`body`) |
 | `kommentare_notes` | string | `floating` (Notizen schweben; `inline` = Randspalte) |
-| `kommentare_should_load` | bool | Einstellung `frontend`, ggf. auf angemeldete Nutzer:innen eingeschränkt |
+| `kommentare_should_load` | bool | Einstellung `frontend`, standardmäßig auf angemeldete Nutzer:innen eingeschränkt |
 | `kommentare_should_load_admin` | bool, `$hook` | Einstellung `backend` (`true`) |
 | `kommentare_autor` | string | Anzeigename bzw. „Gast“ |
 | `kommentare_read_only` | bool | `false` |

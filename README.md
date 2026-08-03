@@ -126,9 +126,9 @@ Cookies, kein Tracking, keine externen Anfragen.
 
 **Mit Sammelstelle:** Die Adresse steht im Seitenquelltext — das lässt sich bei
 einem Client-Werkzeug nicht ändern. Wer sie kennt, kann in die Tabelle
-schreiben. Auf öffentlichen Seiten deshalb in den Plugin-Einstellungen
-**„Im Frontend nur angemeldete Nutzer:innen"** setzen (statisch:
-`kommentare_should_load` bzw. Auslieferung hinter Login). Gemeldet wird nie eine
+schreiben. Das Plugin liefert deshalb
+**„Im Frontend nur angemeldete Nutzer:innen"** ab Werk eingeschaltet aus
+(statisch: `kommentare_should_load` bzw. Auslieferung hinter Login). Gemeldet wird nie eine
 IP-Adresse, sondern eine anonyme Sitzungskennung, die beim Schließen des Tabs
 verfällt; ist die Sammelstelle aktiv, benennt der „?"-Hilfetext den Versand.
 
@@ -151,7 +151,7 @@ npx playwright install chromium
 npm test              # Werkzeug (Playwright) + Plugin-Logik (PHP)
 ```
 
-116 Akzeptanz-Checks im Browser, 27 Prüfungen der WordPress-Plugin-Logik gegen
+116 Akzeptanz-Checks im Browser, 32 Prüfungen der WordPress-Plugin-Logik gegen
 eine Attrappe — beides ohne Installation lauffähig.
 
 ## 📄 Lizenz
