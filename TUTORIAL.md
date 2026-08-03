@@ -167,6 +167,7 @@ Plugin-Liste). Dort lässt sich eintragen:
 | **Adresse der Sammelstelle** | Kommentare in einer zentralen Tabelle sammeln (siehe [Abschnitt 8](#8-kommentare-in-einem-google-sheet-sammeln)); leer = aus |
 | **Jede Änderung automatisch melden** | aus = nur der Knopf „Alle senden" schickt |
 | **Laden im Frontend / im Backend** | je einzeln abschaltbar |
+| **Im Frontend nur angemeldete Nutzer:innen** | **empfohlen, sobald eine Sammelstelle läuft** — sonst kann auf einer öffentlichen Seite jede:r in deine Tabelle schreiben |
 | **Kommentierbarer Bereich** | CSS-Selektor; Standard `body` = ganze Seite. Nur der Inhalt: `.wp-block-post-content` |
 | **E-Mail-Empfänger** | für „Per E-Mail senden"; leer = Knopf aus |
 
@@ -381,6 +382,7 @@ den Kommentierenden ausdrücklich.
 |---|---|
 | Keine Empfangsbestätigung | Der Versand ist „abschicken und gut“ (CORS lässt keine lesbare Antwort zu). „Alle senden“ ist das Netz; Doppelte fängt die Kommentar-ID ab. |
 | Kein Rückkanal | Die Tabelle füllt sich, aber die Seite liest **nicht** aus ihr. Gemeinsames Sehen läuft weiterhin über „Kommentare laden“ (Abschnitt 4). |
+| Öffentliche Adresse | Die `/exec`-Adresse steht im Seitenquelltext jeder Seite, auf der das Werkzeug läuft — bei einem Client-Werkzeug unvermeidbar. Wer sie kennt, kann Zeilen schreiben. Auf öffentlichen Seiten deshalb „Im Frontend nur angemeldete Nutzer:innen" setzen. |
 | Apps-Script-Kontingente | Für Review-Runden weit ausreichend; bei sehr hohem Aufkommen sind Cloudflare Worker oder Airtable die robustere Wahl — die Adresse tauschst du einfach aus, die Nutzlast bleibt gleich. |
 
 Aufbau der Nutzlast: [Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md).

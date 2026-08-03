@@ -107,6 +107,18 @@
 
   var idSeed = 0; // fortlaufend, damit gleichzeitig erzeugte Ids eindeutig bleiben
 
+  /* Größte Nutzlast einer Sendung an die Sammelstelle. sendBeacon und
+     fetch({keepalive:true}) begrenzen den Rumpf auf 64 KiB; darüber scheitert
+     der Versand still. Etwas Luft lassen (Header, Mehrbyte-Zeichen). */
+  var WEBHOOK_MAX = 56 * 1024;
+
+  /* Länge in BYTES, nicht in Zeichen: Umlaute und Emoji brauchen mehrere
+     Bytes, und die Grenze des Browsers zählt Bytes. */
+  function byteLen(s) {
+    try { return new Blob([s]).size; }
+    catch (_) { return s.length * 3; } // Worst-Case-Schätzung
+  }
+
   /* -------------------------------------------------------------------- */
   /* Hilfsfunktionen                                                       */
   /* -------------------------------------------------------------------- */
@@ -171,6 +183,13 @@
     if (!container) {
       throw new Error("Kommentare.init: container nicht gefunden (" + options.container + ")");
     }
+    // Zweimal auf denselben Container würde zwei überlagerte Werkzeuge
+    // erzeugen (doppelter Knopf, doppeltes Popover bei jeder Auswahl).
+    if (container.hasAttribute("data-kommentare-aktiv")) {
+      throw new Error("Kommentare.init: für diesen Container läuft bereits eine Instanz " +
+                      "(erst destroy() aufrufen).");
+    }
+    container.setAttribute("data-kommentare-aktiv", "1");
 
     this.container = container;
     this.autor = options.autor || "";
@@ -617,7 +636,12 @@
         this._onHelpOpen = function () { self._openHelp(); };
         this._onHelpClose = function () { self._closeHelp(); };
         this._onHelpBackdrop = function (e) { if (e.target === self._helpEl) self._closeHelp(); };
-        this._onHelpKey = function (e) { if (e.key === "Escape") self._closeHelp(); };
+        // Escape schließt; Tab bleibt im Dialog (aria-modal="true" allein
+        // hindert die Tastatur nicht daran, dahinter weiterzuwandern).
+        this._onHelpKey = function (e) {
+          if (e.key === "Escape") { self._closeHelp(); return; }
+          if (e.key === "Tab") self._trapFocus(e, self._helpEl);
+        };
         this._helpBtn.addEventListener("click", this._onHelpOpen);
         this._helpClose.addEventListener("click", this._onHelpClose);
         this._helpEl.addEventListener("click", this._onHelpBackdrop);
@@ -982,6 +1006,24 @@
     },
 
     /* ---- Hilfe-Panel ------------------------------------------------- */
+    // Tastaturfokus im Dialog halten: am Ende zurück an den Anfang und
+    // umgekehrt. Ohne das führt Tab aus einem "modalen" Dialog heraus.
+    _trapFocus: function (e, wurzel) {
+      if (!wurzel) return;
+      var ziele = wurzel.querySelectorAll(
+        'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+      var sichtbar = Array.prototype.filter.call(ziele, function (n) {
+        return !n.disabled && n.offsetParent !== null;
+      });
+      if (!sichtbar.length) return;
+      var erste = sichtbar[0], letzte = sichtbar[sichtbar.length - 1];
+      var aktiv = document.activeElement;
+      if (e.shiftKey && (aktiv === erste || !wurzel.contains(aktiv))) {
+        e.preventDefault(); letzte.focus();
+      } else if (!e.shiftKey && (aktiv === letzte || !wurzel.contains(aktiv))) {
+        e.preventDefault(); erste.focus();
+      }
+    },
     _openHelp: function () {
       if (!this._helpEl) return;
       this._helpEl.classList.remove("kommentare-hidden");
@@ -1116,6 +1158,14 @@
       }
     },
 
+    // ALLE Markierungs-Teile einer Annotation. Eine Auswahl über mehrere
+    // Knoten (z. B. über ein <b> oder eine Absatzgrenze hinweg) erzeugt
+    // mehrere <mark>-Elemente mit derselben id — wer nur das erste anfasst,
+    // lässt den Rest verwaist zurück.
+    _marksOf: function (id) {
+      return this.container.querySelectorAll(
+        'mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
+    },
     _unwrapMarks: function () {
       var marks = this.container.querySelectorAll("mark.kommentare-mark");
       marks.forEach(function (m) {
@@ -1406,10 +1456,12 @@
       if (this._overlayEl) this._overlayEl.querySelectorAll(".kommentare-el-mark.is-active,.kommentare-point-mark.is-active")
         .forEach(function (e) { e.classList.remove("is-active"); });
 
-      var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + sel + '"]');
+      // alle Teile der Markierung hervorheben, zum ersten scrollen
+      var teile = this._marksOf(id);
       var note = this._marginEl.querySelector('.kommentare-note[data-anno-id="' + sel + '"]');
       var a = this.annos.get(id);
-      if (m) { m.classList.add("is-active"); m.scrollIntoView({ block: "center" }); }
+      teile.forEach(function (t) { t.classList.add("is-active"); });
+      if (teile.length) teile[0].scrollIntoView({ block: "center" });
       if (a && (a.kind === "element" || a.kind === "point")) {
         var box = this._overlayEl && this._overlayEl.querySelector('[data-anno-id="' + sel + '"]');
         var elx = this._resolveElement(a);
@@ -1423,13 +1475,15 @@
     _removeAnno: function (id) {
       var weg = this.annos.get(id); // vor dem Löschen merken (für die Meldung)
       this.annos.delete(id);
-      var m = this.container.querySelector('mark.kommentare-mark[data-anno-id="' + cssEscape(id) + '"]');
-      if (m) {
+      // jedes Teilstück auflösen — sonst bleiben sichtbare Markierungen ohne
+      // zugehörige Notiz stehen
+      var teile = this._marksOf(id);
+      teile.forEach(function (m) {
         var p = m.parentNode;
         while (m.firstChild) p.insertBefore(m.firstChild, m);
         p.removeChild(m);
-        this.container.normalize();
-      }
+      });
+      if (teile.length) this.container.normalize();
       this._render();
       if (this.onDelete) this.onDelete(id);
       this._webhookAuto(weg, this.texte.aktionGeloescht);
@@ -1522,31 +1576,77 @@
         bildschirm:   (scr.width || 0) + "×" + (scr.height || 0)
       };
     },
-    // Absenden ohne CORS-Vorabanfrage: 'text/plain' vermeidet den Preflight,
-    // den ein Google-Apps-Script-Web-App nicht beantworten kann. Die Antwort
-    // ist dadurch nicht lesbar — der Versand ist bewusst „abschicken und gut“.
-    _webhookSend: function (entries) {
-      if (!this.webhook || !entries || !entries.length) return false;
-      var payload = JSON.stringify({
+    // Eine Sendung verpacken (JSON-Text).
+    _webhookPayload: function (entries) {
+      return JSON.stringify({
         generator: "kommentar-tool",
         version: 1,
         gesendet: new Date().toISOString(),
         eintraege: entries
       });
+    },
+    // Einträge so bündeln, dass jede Sendung unter der 64-KiB-Grenze bleibt,
+    // die sowohl sendBeacon als auch fetch({keepalive:true}) setzen. Ein
+    // einzelner überlanger Eintrag bleibt allein und geht ohne keepalive raus.
+    _webhookBuendel: function (entries) {
+      var buendel = [], aktuell = [], summe = 0, i, groesse;
+      var huelle = byteLen(this._webhookPayload([])); // Grundgerüst der Sendung
+      for (i = 0; i < entries.length; i++) {
+        groesse = byteLen(JSON.stringify(entries[i])) + 1; // + Trennkomma
+        if (aktuell.length && huelle + summe + groesse > WEBHOOK_MAX) {
+          buendel.push(aktuell);
+          aktuell = [];
+          summe = 0;
+        }
+        aktuell.push(entries[i]);
+        summe += groesse;
+      }
+      if (aktuell.length) buendel.push(aktuell);
+      return buendel;
+    },
+    // Absenden ohne CORS-Vorabanfrage: 'text/plain' vermeidet den Preflight,
+    // den ein Google-Apps-Script-Web-App nicht beantworten kann. Die Antwort
+    // ist dadurch nicht lesbar — der Versand ist bewusst „abschicken und gut“.
+    // Fehler, die der Browser DOCH meldet (z. B. Netz weg), landen am Knopf.
+    _webhookSend: function (entries) {
+      if (!this.webhook || !entries || !entries.length) return false;
+      var self = this;
+      var buendel = this._webhookBuendel(entries);
+      // Das 64-KiB-Kontingent von sendBeacon/keepalive gilt für ALLE offenen
+      // Anfragen zusammen — bei mehreren Bündeln scheiterten sonst alle bis
+      // auf das erste. Dann lieber gewöhnliches fetch: kein Kontingent.
+      var mitKeepalive = buendel.length === 1;
+      var ok = true;
+      buendel.forEach(function (teil) {
+        if (!self._webhookPost(self._webhookPayload(teil), mitKeepalive)) ok = false;
+      });
+      return ok;
+    },
+    // erlaubeKeepalive: nur sinnvoll, wenn die Sendung einen Seitenwechsel
+    // überleben soll (automatischer Einzelversand) — und nur unter 64 KiB.
+    _webhookPost: function (payload, erlaubeKeepalive) {
+      var self = this;
+      var haltbar = !!erlaubeKeepalive && byteLen(payload) <= WEBHOOK_MAX;
       try {
-        if (global.navigator && global.navigator.sendBeacon) {
+        if (haltbar && global.navigator && global.navigator.sendBeacon) {
           var blob = new Blob([payload], { type: "text/plain;charset=UTF-8" });
           if (global.navigator.sendBeacon(this.webhook, blob)) return true;
+          // Kontingent bereits ausgeschöpft -> ohne keepalive weiter,
+          // sonst scheiterte auch der fetch-Versuch.
+          haltbar = false;
         }
-      } catch (_) { /* weiter mit fetch */ }
+      } catch (_) { haltbar = false; }
       try {
-        global.fetch(this.webhook, {
+        var opts = {
           method: "POST",
           mode: "no-cors",
-          keepalive: true,
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: payload
-        })["catch"](function () { /* Fehler sind nicht auswertbar */ });
+        };
+        if (haltbar) opts.keepalive = true;
+        global.fetch(this.webhook, opts)["catch"](function () {
+          self._sendFeedback(self.texte.sendenFehler);
+        });
         return true;
       } catch (_) { return false; }
     },
@@ -1699,6 +1799,9 @@
       this._unwrapMarks();
       this.container.classList.remove("kommentare-scope", "kommentare-doc",
         "kommentare-dark", "kommentare-light", "kommentare-picking");
+      // Container wieder freigeben, damit init() erneut greifen kann
+      this.container.removeAttribute("data-kommentare-aktiv");
+      this._sendBtn = null; // späte Rückmeldungen laufen ins Leere
 
       if (this._wrapper) {
         // Container an ursprüngliche Position zurücksetzen

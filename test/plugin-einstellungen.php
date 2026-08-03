@@ -31,7 +31,7 @@ function update_option($k, $v) { $GLOBALS['opt'][$k] = $v; }
 function register_setting($g, $n, $a = array()) {}
 function add_options_page() {}
 function current_user_can($c) { return true; }
-function is_user_logged_in() { return false; }
+function is_user_logged_in() { return !empty($GLOBALS['eingeloggt']); }
 function wp_get_current_user() { return (object) array('display_name' => 'Test'); }
 function admin_url($p = '') { return 'https://example.org/wp-admin/' . $p; }
 function esc_url($u) { return $u; }
@@ -104,6 +104,24 @@ pruef('Option: email wirkt', $c['email'] === 'a@b.de');
 pruef('Option: container wirkt', $c['container'] === '.inhalt');
 pruef('Option: Frontend aus wirkt', kommentare_should_load() === false);
 pruef('Option: Backend an wirkt', kommentare_should_load_admin('index.php') === true);
+
+// 3b) „Nur angemeldete Nutzer:innen" im Frontend
+update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 1));
+$GLOBALS['eingeloggt'] = false;
+pruef('Nur-eingeloggt: Gast bekommt das Werkzeug nicht', kommentare_should_load() === false);
+$GLOBALS['eingeloggt'] = true;
+pruef('Nur-eingeloggt: angemeldet bekommt es', kommentare_should_load() === true);
+$GLOBALS['eingeloggt'] = false;
+update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 0));
+pruef('Nur-eingeloggt: ohne Haken bleibt es öffentlich', kommentare_should_load() === true);
+pruef('Nur-eingeloggt: Vorgabe ist aus (Verhalten bleibt wie bisher)',
+    kommentare_standard_optionen()['nur_eingeloggt'] === 0);
+$s2 = kommentare_optionen_pruefen(array('nur_eingeloggt' => '1'));
+pruef('Nur-eingeloggt: Haken wird gespeichert', $s2['nur_eingeloggt'] === 1);
+update_option('kommentare_optionen', array(
+    'webhook' => 'https://beispiel.test/exec', 'webhook_auto' => 0,
+    'email' => 'a@b.de', 'container' => '.inhalt', 'frontend' => 0, 'backend' => 1,
+));
 
 // 4) Filter sticht die gespeicherte Option
 add_filter('kommentare_webhook', function () { return 'https://filter.test/exec'; });

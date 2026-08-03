@@ -3,7 +3,7 @@ Contributors: daimpad
 Tags: annotation, kommentare, markierung, annotation, text
 Requires at least: 5.0
 Requires PHP: 7.0
-Stable tag: 1.11.0
+Stable tag: 1.12.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -55,6 +55,10 @@ ohne Code anzufassen:
   Browser). Mit Adresse landen neue Kommentare automatisch in der Tabelle.
 * **Automatisch melden** – aus = nur der Knopf „Alle senden" schickt.
 * **Laden im Frontend / im Backend** – je einzeln an- und abschaltbar.
+* **Im Frontend nur angemeldete Nutzer:innen** – empfohlen, sobald eine
+  Sammelstelle eingetragen ist. Die Adresse steht im Seitenquelltext und lässt
+  sich nicht geheim halten; ohne diesen Haken kann auf einer öffentlichen Seite
+  jede:r in deine Tabelle schreiben.
 * **Kommentierbarer Bereich** – CSS-Selektor, Standard `body`.
 * **E-Mail-Empfänger** – für „Per E-Mail senden"; leer = Knopf aus.
 
@@ -110,6 +114,25 @@ Beispiel (functions.php des Themes):
     });
 
 == Changelog ==
+
+= 1.12.0 =
+* Neu: Einstellung „Im Frontend nur angemeldete Nutzer:innen". Wichtig, sobald
+  eine Sammelstelle eingetragen ist: die Adresse steht im Seitenquelltext, auf
+  einer öffentlichen Seite könnte sonst jede:r in die Tabelle schreiben.
+  Vorgabe ist aus – bestehende Installationen verhalten sich unverändert.
+* Fix: Beim Löschen eines Kommentars, dessen Markierung über mehrere Elemente
+  lief (z. B. über ein <b> oder eine Absatzgrenze), blieben Teile der farbigen
+  Markierung ohne zugehörige Notiz stehen. Jetzt verschwinden alle Teile.
+* Fix: Klick auf eine Notiz hebt jetzt die ganze Markierung hervor, nicht nur
+  ihr erstes Stück.
+* Fix: Große Sendungen an die Sammelstelle scheiterten still und meldeten
+  trotzdem Erfolg (64-KiB-Grenze von sendBeacon/keepalive, die für alle
+  offenen Anfragen zusammen gilt). Ab rund 100 Kommentaren ging bei „Alle
+  senden" nichts mehr raus. Sendungen werden jetzt gebündelt, große Mengen
+  gehen ohne keepalive raus, und echte Fehler erscheinen am Knopf.
+* Barrierefreiheit: Im Hilfe-Dialog bleibt der Tastaturfokus jetzt im Dialog.
+* Robustheit: Zwei Instanzen auf demselben Bereich werden erkannt und
+  abgelehnt, statt sich gegenseitig zu überlagern.
 
 = 1.11.0 =
 * Neu: Einstellungsseite unter „Einstellungen → Kommentator". Adresse der
