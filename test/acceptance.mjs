@@ -241,11 +241,17 @@ check("Duplikat verworfen (erster gewinnt)", all.find((a) => a.id === "shared-1"
 // --- onChange-Callback ---
 const changeFires = await page.evaluate(async () => {
   let count = 0;
-  const i2 = Kommentare.init({ container: "#content", autor: "CB", margin: undefined, onChange: () => { count++; } });
+  // eigener Container: #content gehört bereits der Demo-Instanz
+  const host = document.createElement("div");
+  host.id = "c-onchange";
+  host.innerHTML = "<p>Platzhaltertext für den Callback.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const i2 = Kommentare.init({ container: "#c-onchange", autor: "CB", onChange: () => { count++; } });
   i2.import({ annotations: [{ id: "cb-1", creator: { name: "CB" }, body: [{ value: "x" }],
     target: { selector: [{ type: "TextQuoteSelector", exact: "Platzhaltertext" }] } }] });
   const after = count;
   i2.destroy();
+  host.remove();
   return after;
 });
 check("onChange feuert bei Import", changeFires >= 1);
@@ -741,6 +747,151 @@ const ungueltig = await page.evaluate(() => {
 });
 check("Webhook: nur http(s)-Adressen werden übernommen",
   ungueltig.webhook === "" && ungueltig.knopf === false);
+
+// --- Markierungen über mehrere Knoten: löschen & hervorheben --------------
+await load();
+const mehrknoten = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "mk";
+  host.innerHTML = "<p>Anfang <b>fett</b> und <i>kursiv</i> Ende.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const inst = window.Kommentare.init({ container: "#mk", notes: "floating", autor: "MK" });
+  const p = host.querySelector("p");
+  const r = document.createRange();
+  r.setStart(p.firstChild, 0);
+  r.setEnd(p.lastChild, p.lastChild.length);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  inst._composeText.value = "Über mehrere Knoten.";
+  inst._saveComment();
+  const teile = host.querySelectorAll("mark.kommentare-mark").length;
+  const id = [...inst.annos.keys()][0];
+  inst._focusAnno(id);
+  const aktiv = host.querySelectorAll("mark.kommentare-mark.is-active").length;
+  inst._removeAnno(id);
+  const res = {
+    teile,
+    alleAktiv: aktiv === teile,
+    restMarks: host.querySelectorAll("mark.kommentare-mark").length,
+    textIntakt: host.textContent.trim() === "Anfang fett und kursiv Ende."
+  };
+  inst.destroy(); host.remove();
+  return res;
+});
+check("Mehrknoten: Auswahl erzeugt mehrere Markierungs-Teile", mehrknoten.teile > 1);
+check("Mehrknoten: Löschen entfernt ALLE Teile", mehrknoten.restMarks === 0);
+check("Mehrknoten: Text bleibt unverändert", mehrknoten.textIntakt === true);
+check("Mehrknoten: Hervorheben erfasst alle Teile", mehrknoten.alleAktiv === true);
+
+// --- Doppelte Initialisierung auf demselben Container ---------------------
+const doppel = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "dop"; host.innerHTML = "<p>Doppelt hält nicht besser.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const a = window.Kommentare.init({ container: "#dop", notes: "floating", autor: "D" });
+  let fehler = null;
+  try { window.Kommentare.init({ container: "#dop", notes: "floating", autor: "D2" }); }
+  catch (e) { fehler = e.message; }
+  const attribut = host.getAttribute("data-kommentare-aktiv");
+  a.destroy();
+  const nachDestroy = host.hasAttribute("data-kommentare-aktiv");
+  // nach destroy() muss init() wieder greifen
+  let erneut = null;
+  try { const b = window.Kommentare.init({ container: "#dop", notes: "floating", autor: "D3" });
+        erneut = "ok"; b.destroy(); } catch (e) { erneut = e.message; }
+  host.remove();
+  return { fehler, attribut, nachDestroy, erneut };
+});
+check("Doppel-Init: zweite Instanz wird abgelehnt",
+  !!doppel.fehler && doppel.fehler.indexOf("bereits eine Instanz") > -1);
+check("Doppel-Init: Container ist als belegt markiert", doppel.attribut === "1");
+check("Doppel-Init: destroy() gibt den Container frei", doppel.nachDestroy === false);
+check("Doppel-Init: nach destroy() klappt init() wieder", doppel.erneut === "ok");
+
+// --- Hilfe-Modal: Fokus bleibt im Dialog ----------------------------------
+await load();
+await page.click(".kommentare-fab");
+await page.evaluate(() => {
+  [...document.querySelectorAll(".kommentare-toolbar .kommentare-btn")]
+    .find((b) => b.getAttribute("aria-label") === "Hilfe anzeigen").click();
+});
+const fokusStart = await page.evaluate(() =>
+  document.querySelector(".kommentare-help").contains(document.activeElement));
+// mehrfach Tab: der Fokus darf den Dialog nicht verlassen
+for (let i = 0; i < 6; i++) await page.keyboard.press("Tab");
+const fokusVorwaerts = await page.evaluate(() =>
+  document.querySelector(".kommentare-help").contains(document.activeElement));
+await page.keyboard.press("Shift+Tab");
+await page.keyboard.press("Shift+Tab");
+const fokusRueckwaerts = await page.evaluate(() =>
+  document.querySelector(".kommentare-help").contains(document.activeElement));
+check("Hilfe-Modal: Fokus startet im Dialog", fokusStart === true);
+check("Hilfe-Modal: Tab verlässt den Dialog nicht", fokusVorwaerts === true);
+check("Hilfe-Modal: Shift+Tab verlässt den Dialog nicht", fokusRueckwaerts === true);
+await page.keyboard.press("Escape");
+
+// --- Sammelstelle: 64-KiB-Grenze wird nicht überschritten -----------------
+const HOOK2 = "https://beispiel.test/gross";
+const gross = [];
+await page.route(HOOK2, async (route) => {
+  gross.push((route.request().postData() || "").length);
+  await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+});
+await load();
+const buendel = await page.evaluate((url) => {
+  const host = document.createElement("div");
+  host.id = "gr"; host.innerHTML = "<p>Ein Satz für viele Kommentare hier.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const inst = window.Kommentare.init({ container: "#gr", notes: "floating", autor: "G", webhook: url });
+  // 300 Einträge -> deutlich über 64 KiB in einer einzelnen Sendung
+  const viele = [];
+  for (let i = 0; i < 300; i++) {
+    viele.push(inst._webhookEntry({ id: "id" + i, kind: "text", quote: "Stelle " + i,
+      body: "Kommentar Nummer " + i + " mit etwas Text.", author: "G", created: "" }, "neu"));
+  }
+  const einzeln = JSON.stringify({ eintraege: viele }).length;
+  const teile = inst._webhookBuendel(viele);
+  const groessen = teile.map((t) => new Blob([inst._webhookPayload(t)]).size);
+  const gesendet = inst._webhookSend(viele);
+  // ein einzelner überlanger Eintrag lässt sich nicht teilen
+  const riese = inst._webhookEntry({ id: "riese", kind: "text", quote: "x",
+    body: "ä".repeat(80000), author: "G", created: "" }, "neu");
+  const riesenTeile = inst._webhookBuendel([riese]).length;
+  const res = {
+    ungeteiltBytes: einzeln, teile: teile.length, groessen,
+    maxTeil: Math.max(...groessen), summeEintraege: teile.reduce((n, t) => n + t.length, 0),
+    gesendet, riesenTeile
+  };
+  inst.destroy(); host.remove();
+  return res;
+}, HOOK2);
+for (let i = 0; i < 40 && gross.length < buendel.teile; i++) await page.waitForTimeout(100);
+check("Sammelstelle: große Menge wird gebündelt", buendel.teile > 1 && buendel.ungeteiltBytes > 65536);
+check("Sammelstelle: jedes Bündel bleibt unter 64 KiB", buendel.maxTeil < 65536);
+check("Sammelstelle: kein Eintrag geht beim Bündeln verloren", buendel.summeEintraege === 300);
+check("Sammelstelle: alle Bündel erreichen die Adresse",
+  buendel.gesendet === true && gross.length === buendel.teile);
+check("Sammelstelle: einzelner überlanger Eintrag bleibt eine Sendung", buendel.riesenTeile === 1);
+
+// Überlanger Einzelkommentar (>64 KiB) kommt trotzdem an (ohne keepalive)
+const riesig = [];
+const HOOK3 = "https://beispiel.test/riesig";
+await page.route(HOOK3, async (route) => {
+  riesig.push((route.request().postData() || "").length);
+  await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+});
+await page.evaluate((url) => {
+  const host = document.createElement("div");
+  host.id = "ri"; host.innerHTML = "<p>Kurzer Satz.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const inst = window.Kommentare.init({ container: "#ri", notes: "floating", autor: "R", webhook: url });
+  inst._webhookSend([inst._webhookEntry({ id: "r1", kind: "text", quote: "x",
+    body: "y".repeat(120000), author: "R", created: "" }, "neu")]);
+  inst.destroy(); host.remove();
+}, HOOK3);
+for (let i = 0; i < 40 && !riesig.length; i++) await page.waitForTimeout(100);
+check("Sammelstelle: Sendung über 64 KiB geht trotzdem raus",
+  riesig.length === 1 && riesig[0] > 65536);
 
 await browser.close();
 const failed = results.filter((r) => !r[1]);

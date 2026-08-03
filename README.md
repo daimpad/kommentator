@@ -20,6 +20,7 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
 
 **[▶ Live-Demo](https://daimpad.github.io/kommentator/)**  ·
 **[⬇ WordPress-Plugin](../../releases)**  ·
+**[💡 Überblick](UEBERBLICK.md)**  ·
 **[📘 Tutorial](TUTORIAL.md)**  ·
 **[🛠 Technische Doku](TECHNISCHE_DOKUMENTATION.md)**
 
@@ -30,6 +31,29 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
 </div>
 
 <br>
+
+## 💡 Worum es geht
+
+Rückmeldungen zu einer Webseite kommen sonst als E-Mail-Fließtext („die
+Überschrift auf der zweiten Seite unten…"), als Word-Datei mit Screenshots oder
+als Telefonnotiz — und müssen erst wieder auf der Seite gesucht werden.
+
+Der Kommentator legt sich als **Klebezettel-Schicht über die bestehende Seite**:
+Textstellen markieren, Elemente anklicken, Punkte anheften — jeweils mit einem
+Kommentar daran, ohne an der Seite selbst etwas zu ändern. Die Rückmeldung
+entsteht dort, wo sie hingehört.
+
+Andere lösen das mit Figma-Kommentaren, Usersnap oder Marker.io: leistungsfähig,
+aber gebunden an Konto, Abo, fremden Server und Datenschutzprüfung. Hier sind es
+**zwei Dateien, die man neben die Seite legt.**
+
+> **Für wen?** Agenturen in Abnahmerunden · Redaktionen beim Gegenlesen ·
+> alle mit Datenschutzauflagen (kein Konto, keine Cookies, kein Tracking,
+> keine IP-Adressen) · WordPress-Betreiber:innen · Entwickler:innen, die so
+> etwas einbauen wollen.
+>
+> **Ausführlich: [→ Überblick](UEBERBLICK.md)** — was er ist, was er kann,
+> wofür er taugt, wofür ausdrücklich nicht, und wer sich damit befassen sollte.
 
 ## ✨ Was es kann
 
@@ -53,8 +77,10 @@ zusammenführen — **ohne Server, ohne Build, ohne externe Abhängigkeiten.**
 - 🎛️ **Aufgeräumte Oberfläche** — Floating-Button unten rechts, ziehbare
   Notizspalte, „?“-Hilfe, ☾/☀ Hell-/Dunkelmodus.
 - 🎨 **Themebar** — alles über CSS-Variablen; Dark-Mode inklusive.
-- ♿ **Barrierearm** — Tastaturfokus, ARIA, `prefers-reduced-motion`, responsiv.
-- 🧩 **Überall einbindbar** — statische Seite oder WordPress-Plugin.
+- ♿ **Barrierearm** — Tastaturfokus mit Fokusfalle in Dialogen, ARIA,
+  `prefers-reduced-motion`, responsiv bis 380 px.
+- 🧩 **Überall einbindbar** — statische Seite oder WordPress-Plugin; das Plugin
+  bringt eine **Einstellungsseite** mit, `functions.php` ist optional.
 - 🪶 **Winzig** — zwei Dateien, kein Framework, kein `localStorage`.
 
 ## 🚀 Schnellstart
@@ -90,13 +116,26 @@ Das war alles — Randspalte und Menü entstehen automatisch. Ausführlich im
 
 ## 🔒 Kurz zur Sicherheit
 
-Das Namensfeld dient der **Zuordnung**, nicht dem Zugriffsschutz. Echten Schutz
-(„Name + Passwort“) regelt der Betrieb serverseitig — z. B. HTTP Basic Auth
-(`.htaccess`) oder WordPress-Login. Details im
+**Das Namensfeld ordnet zu, es schützt nicht.** Echten Schutz („Name +
+Passwort") regelt der Betrieb serverseitig — HTTP Basic Auth (`.htaccess`) oder
+WordPress-Login. Details im
 [Tutorial](TUTORIAL.md#7-echten-zugriffsschutz-einrichten).
+
+**Ohne Konfiguration verlässt nichts den Browser.** Kein `localStorage`, keine
+Cookies, kein Tracking, keine externen Anfragen.
+
+**Mit Sammelstelle:** Die Adresse steht im Seitenquelltext — das lässt sich bei
+einem Client-Werkzeug nicht ändern. Wer sie kennt, kann in die Tabelle
+schreiben. Auf öffentlichen Seiten deshalb in den Plugin-Einstellungen
+**„Im Frontend nur angemeldete Nutzer:innen"** setzen (statisch:
+`kommentare_should_load` bzw. Auslieferung hinter Login). Gemeldet wird nie eine
+IP-Adresse, sondern eine anonyme Sitzungskennung, die beim Schließen des Tabs
+verfällt; ist die Sammelstelle aktiv, benennt der „?"-Hilfetext den Versand.
 
 ## 📚 Dokumentation
 
+- **[Überblick](UEBERBLICK.md)** — was der Kommentator ist, wofür er taugt,
+  wofür nicht, und für wen er gedacht ist.
 - **[Tutorial](TUTORIAL.md)** — Nutzung, Installation, Deployment, Troubleshooting.
 - **[Kommentare in einem Google Sheet sammeln](TUTORIAL.md#8-kommentare-in-einem-google-sheet-sammeln)**
   — Schritt für Schritt, mit fertigem Apps-Script.
@@ -109,8 +148,11 @@ Das Namensfeld dient der **Zuordnung**, nicht dem Zugriffsschutz. Echten Schutz
 ```bash
 npm install
 npx playwright install chromium
-npm test
+npm test              # Werkzeug (Playwright) + Plugin-Logik (PHP)
 ```
+
+116 Akzeptanz-Checks im Browser, 27 Prüfungen der WordPress-Plugin-Logik gegen
+eine Attrappe — beides ohne Installation lauffähig.
 
 ## 📄 Lizenz
 

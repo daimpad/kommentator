@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.11.0
+ * Version:           1.12.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -27,7 +27,7 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.11.0');
+define('KOMMENTARE_VERSION', '1.12.0');
 
 /* ===========================================================================
  * EINSTELLUNGEN (Einstellungen → Kommentator)
@@ -46,6 +46,7 @@ function kommentare_standard_optionen() {
         'container'    => 'body',  // kommentierbarer Bereich
         'frontend'     => 1,       // im Frontend laden
         'backend'      => 1,       // in wp-admin laden
+        'nur_eingeloggt' => 0,     // im Frontend nur für angemeldete Nutzer:innen
     );
 }
 
@@ -89,9 +90,10 @@ function kommentare_optionen_pruefen($eingabe) {
     }
     $sauber['webhook'] = $url;
 
-    $sauber['webhook_auto'] = empty($eingabe['webhook_auto']) ? 0 : 1;
-    $sauber['frontend']     = empty($eingabe['frontend']) ? 0 : 1;
-    $sauber['backend']      = empty($eingabe['backend']) ? 0 : 1;
+    $sauber['webhook_auto']   = empty($eingabe['webhook_auto']) ? 0 : 1;
+    $sauber['frontend']       = empty($eingabe['frontend']) ? 0 : 1;
+    $sauber['backend']        = empty($eingabe['backend']) ? 0 : 1;
+    $sauber['nur_eingeloggt'] = empty($eingabe['nur_eingeloggt']) ? 0 : 1;
 
     $mail = isset($eingabe['email']) ? sanitize_email($eingabe['email']) : '';
     if (!empty($eingabe['email']) && $mail === '') {
@@ -210,6 +212,19 @@ function kommentare_einstellungsseite() {
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row"><?php esc_html_e('Wer darf kommentieren', 'kommentare'); ?></th>
+                    <td>
+                        <label>
+                            <input name="kommentare_optionen[nur_eingeloggt]" type="checkbox" value="1"
+                                   <?php checked($o['nur_eingeloggt'], 1); ?>>
+                            <?php esc_html_e('Im Frontend nur angemeldete Nutzer:innen', 'kommentare'); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e('Ohne Haken sehen und nutzen alle Besucher:innen das Werkzeug. Auf einer öffentlichen Seite mit Sammelstelle heißt das: jede:r kann in deine Tabelle schreiben — die Adresse steht im Seitenquelltext und lässt sich nicht geheim halten.', 'kommentare'); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row">
                         <label for="kommentare-container"><?php esc_html_e('Kommentierbarer Bereich', 'kommentare'); ?></label>
                     </th>
@@ -278,7 +293,14 @@ function kommentare_container_selector() {
  * @return bool
  */
 function kommentare_should_load() {
-    return (bool) apply_filters('kommentare_should_load', (bool) kommentare_option('frontend'));
+    $laden = (bool) kommentare_option('frontend');
+    // Wer die Sammelstelle nutzt, schreibt aus dem Frontend in eine fremde
+    // Tabelle — die Beschränkung auf angemeldete Nutzer:innen ist dann das
+    // wirksamste Mittel gegen Fremdeinträge.
+    if ($laden && kommentare_option('nur_eingeloggt')) {
+        $laden = is_user_logged_in();
+    }
+    return (bool) apply_filters('kommentare_should_load', $laden);
 }
 
 /**

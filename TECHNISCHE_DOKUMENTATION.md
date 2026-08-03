@@ -20,6 +20,7 @@ interne Funktionsweise des Kommentar-Werkzeugs.
 | `wordpress/kommentare-tool/` | installierbares WordPress-Plugin (bündelt die Assets) |
 | `test/acceptance.mjs` | Headless-Akzeptanztest des Werkzeugs (Playwright) |
 | `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungen, Filter-Vorrang) — ohne WordPress |
+| `UEBERBLICK.md` | Was der Kommentator ist, wofür er taugt, für wen |
 
 Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten**,
 **kein `localStorage`**. Der Zustand lebt im Speicher der Sitzung.
@@ -285,6 +286,28 @@ kein Cookie, keine seitenübergreifende Wiedererkennung).
 Ist die Sammelstelle aktiv, benennt der „?“-Hilfetext das ausdrücklich — er
 listet auf, was verschickt wird, und dass keine IP dabei ist.
 
+### Bündelung und die 64-KiB-Grenze
+
+`sendBeacon()` und `fetch({keepalive:true})` teilen sich ein **gemeinsames
+Kontingent von 64 KiB für alle offenen Anfragen**. Wird es überschritten, gibt
+`sendBeacon` `false` zurück und `fetch` scheitert mit `TypeError` — beides
+lautlos, wenn man nicht hinsieht.
+
+Deshalb:
+
+- Einträge werden vor dem Versand in **Bündel unter 56 KiB** aufgeteilt
+  (byte-genau gemessen, Umlaute zählen doppelt).
+- `keepalive` setzt nur der **automatische Einzelversand** — dort ist es
+  sinnvoll, weil die Sendung einen Seitenwechsel überleben soll.
+- Mehrere Bündel („Alle senden“) gehen als **gewöhnliches `fetch`** raus, das
+  kein Kontingent kennt. Auch ein einzelner überlanger Eintrag (sehr langer
+  Kommentar) nimmt diesen Weg, statt still zu scheitern.
+- Lehnt `sendBeacon` ab, weil das Kontingent schon aufgebraucht ist, folgt der
+  Versuch **ohne** `keepalive` — sonst scheiterte auch er.
+
+Meldet der Browser doch einen Fehler (Netz weg, Adresse tot), landet er als
+Hinweis am Knopf „Alle senden“.
+
 ### Warum „abschicken und gut“
 
 Der Versand nutzt `navigator.sendBeacon()`, ersatzweise `fetch(…, {mode:
@@ -381,6 +404,7 @@ wird als **eine** Option `kommentare_optionen` (Array):
 | `container` | string | `body` | kommentierbarer Bereich (CSS-Selektor) |
 | `email` | string | leer | Empfänger für „Per E-Mail senden“ |
 | `frontend` | 0/1 | `1` | im Frontend laden |
+| `nur_eingeloggt` | 0/1 | `0` | im Frontend nur für angemeldete Nutzer:innen |
 | `backend` | 0/1 | `1` | in wp-admin laden |
 
 Beim Speichern geprüft (`kommentare_optionen_pruefen()`): `webhook` nur `http(s)`
@@ -398,7 +422,7 @@ bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 |---|---|---|
 | `kommentare_container_selector` | string | Einstellung `container` (`body`) |
 | `kommentare_notes` | string | `floating` (Notizen schweben; `inline` = Randspalte) |
-| `kommentare_should_load` | bool | Einstellung `frontend` (`true`) |
+| `kommentare_should_load` | bool | Einstellung `frontend`, ggf. auf angemeldete Nutzer:innen eingeschränkt |
 | `kommentare_should_load_admin` | bool, `$hook` | Einstellung `backend` (`true`) |
 | `kommentare_autor` | string | Anzeigename bzw. „Gast“ |
 | `kommentare_read_only` | bool | `false` |

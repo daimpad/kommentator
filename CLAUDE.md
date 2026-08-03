@@ -19,7 +19,8 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 | `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. |
 | `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Testquelle fürs Werkzeug. |
 | `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungsseite, Filter-Vorrang) gegen eine WordPress-Attrappe. Läuft mit, wenn PHP vorhanden ist. |
-| `README.md` | Schicke Landingpage. | 
+| `README.md` | Schicke Landingpage. |
+| `UEBERBLICK.md` | Ausführliche Einordnung: was/wofür/für wen. Nicht-technisch. |
 | `TECHNISCHE_DOKUMENTATION.md` | API, Datenmodell, Theming, Filter, Tests. |
 | `TUTORIAL.md` | Schritt-für-Schritt Nutzung/Installation/Deploy. |
 
