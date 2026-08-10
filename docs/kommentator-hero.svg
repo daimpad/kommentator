@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 780" width="1400" height="780"
+     role="img" aria-labelledby="titel beschreibung">
+  <title id="titel">Kommentator</title>
+  <desc id="beschreibung">Eine Webseite mit einer darüberliegenden Kommentarschicht:
+  eine markierte Textstelle, ein eingekreister Absatz mit Pfeil zur Notiz und eine
+  Sprechblase am Titel.</desc>
+
+  <!-- nozilla-CI: Papier #FFFEE5 · Tinte #000 · Signal-Grün #00FF9C
+       Radius immer 0, harte Kanten, keine Verläufe, keine weichen Schatten. -->
+  <rect width="1400" height="780" fill="#FFFFFF"/>
+
+  <!-- Kommentarschicht, oben rechts versetzt: liegt ÜBER der Seite -->
+  <rect x="333" y="78" width="782" height="578" fill="#00FF9C" opacity=".08"/>
+  <rect x="333" y="78" width="782" height="578" fill="none" stroke="#00FF9C" stroke-width="2.5"/>
+
+  <!-- Die Seite selbst, unten links versetzt -->
+  <rect x="291" y="120" width="784" height="570" fill="none" stroke="#000" stroke-width="6"/>
+  <rect x="299" y="163" width="770" height="520" fill="#FFFEE5"/>
+  <rect x="291" y="118" width="784" height="46" fill="#000"/>
+
+  <!-- Sprechblase am Titel -->
+  <rect x="430" y="40" width="36" height="36" fill="#00FF9C" stroke="#000" stroke-width="3"/>
+  <path d="M494 40 H656 V96 H540 L516 124 V96 H494 Z" fill="#00FF9C" stroke="#000" stroke-width="3"
+        stroke-linejoin="miter"/>
+  <path d="M448 76 V214" stroke="#000" stroke-width="3.5"/>
+
+  <!-- Überschrift + Fließtext -->
+  <rect x="372" y="200" width="240" height="30" fill="#000"/>
+  <rect x="378" y="258" width="430" height="9" fill="#000"/>
+  <rect x="378" y="284" width="196" height="9" fill="#000"/>
+
+  <!-- Bildplatzhalter -->
+  <rect x="858" y="200" width="176" height="98" fill="#000"/>
+
+  <!-- Markierte Textstelle: Signal-Grün, mit Klammer zur Notiz -->
+  <rect x="366" y="316" width="446" height="66" fill="#00FF9C"/>
+  <rect x="378" y="325" width="418" height="9" fill="#000"/>
+  <rect x="378" y="348" width="410" height="9" fill="#000"/>
+  <rect x="378" y="371" width="212" height="9" fill="#000"/>
+  <rect x="596" y="371" width="212" height="9" fill="#000"/>
+  <path d="M828 316 H840 V382 H828" fill="none" stroke="#00FF9C" stroke-width="5"/>
+  <rect x="866" y="333" width="150" height="34" fill="#00FF9C"/>
+
+  <rect x="378" y="396" width="292" height="9" fill="#000"/>
+
+  <!-- Zweiter Bildplatzhalter + eingekreister Absatz mit Pfeil zur Notiz -->
+  <rect x="374" y="446" width="200" height="102" fill="#000"/>
+  <rect x="610" y="464" width="196" height="9" fill="#000"/>
+  <rect x="596" y="487" width="188" height="9" fill="#000"/>
+  <rect x="604" y="510" width="180" height="9" fill="#000"/>
+  <rect x="600" y="533" width="136" height="9" fill="#000"/>
+  <path d="M676 430 C782 424 818 470 812 502 C806 546 742 566 686 564
+           C606 561 558 534 560 496 C562 456 614 434 668 431"
+        fill="none" stroke="#00C075" stroke-width="4" stroke-linecap="round"/>
+  <path d="M822 488 H862 M848 476 L864 488 L848 500"
+        fill="none" stroke="#00C075" stroke-width="4"
+        stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="876" y="462" width="158" height="52" fill="#00FF9C"/>
+
+  <!-- Fließtext unten -->
+  <rect x="374" y="588" width="434" height="9" fill="#000"/>
+  <rect x="374" y="611" width="410" height="9" fill="#000"/>
+  <rect x="374" y="634" width="338" height="9" fill="#000"/>
+
+  <!-- Exportierte Kommentare: gestapelte Karten -->
+  <rect x="1290" y="628" width="80" height="96" fill="#00FF9C" stroke="#000" stroke-width="4"/>
+  <rect x="1276" y="618" width="80" height="96" fill="#00FF9C" stroke="#000" stroke-width="4"/>
+</svg>

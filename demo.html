@@ -3,76 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kommentare — Einbindungsbeispiel</title>
+<title>Kommentator — Textstellen markieren und kommentieren</title>
+<meta name="description" content="Markieren, kommentieren, exportieren. Ohne Server, ohne Build, ohne externe Abhängigkeiten.">
 
-<!-- (1) Stylesheet einbinden -->
+<!-- (1) Werkzeug-Stile, danach das Erscheinungsbild dieser Seite -->
 <link rel="stylesheet" href="kommentare.css">
+<link rel="stylesheet" href="demo.css">
 
 <!--
-  Diese Seite bindet nur kommentare.css + kommentare.js ein; der Start-Code
-  liegt in demo.js. Beim Laden erscheint ein Namens-Modal; danach sieht man
-  in voller Breite den Text und rechts die (ziehbare) Notizspalte. Alle
-  Funktionen stecken hinter dem Button unten rechts.
+  Diese Seite bindet kommentare.css + kommentare.js ein; der Start-Code liegt
+  in demo.js. demo.css bringt das nozilla-Erscheinungsbild und färbt das
+  Werkzeug über dessen CSS-Variablen um — kommentare.css selbst bleibt neutral.
+
+  Beim Laden erscheint ein Namens-Modal; danach sieht man in voller Breite den
+  Text und rechts die (ziehbare) Notizspalte. Alle Funktionen stecken hinter
+  dem Button unten rechts.
 -->
-<style>
-  :root{
-    --page:#f7f6f3; --surface:#fff; --tint:#1b1b18; --faint:#6c6c63;
-    --rule:#e8e6df; --rule-strong:#d6d4cb; --accent:#4f46e5; --accent-soft:#eef0ff;
-    --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    --serif:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --radius:14px; --radius-sm:9px; --pill:999px;
-    --shadow:0 1px 2px rgba(20,20,15,.05),0 4px 14px rgba(20,20,15,.06);
-    --shadow-lg:0 12px 40px rgba(20,20,15,.18); --code-bg:#1b1b18; --code-ink:#f4f3ea;
-  }
-  @media(prefers-color-scheme:dark){
-    :root:not([data-theme="light"]){
-      --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
-      --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
-      --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
-      --shadow-lg:0 14px 44px rgba(0,0,0,.6); --code-bg:#0e0e0c;
-    }
-  }
-  :root[data-theme="dark"]{
-    --page:#131311; --surface:#1c1c19; --tint:#ecebe3; --faint:#9d9c92;
-    --rule:#2c2c26; --rule-strong:#3b3b33; --accent:#8b85ff; --accent-soft:#262538;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.45);
-    --shadow-lg:0 14px 44px rgba(0,0,0,.6); --code-bg:#0e0e0c;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{background:var(--page);color:var(--tint);font-family:var(--serif);line-height:1.65;
-    -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1400px;margin:0 auto;padding:1.6rem 1.4rem 6rem}
-  .doc code{font-family:var(--mono);font-size:.85em;background:var(--accent-soft);
-    color:var(--accent);padding:.1em .35em;border-radius:5px}
-
-  /* Namens-Modal beim Laden */
-  .gate{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;
-    padding:1.2rem;background:rgba(20,20,15,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-  .gate-box{width:min(30rem,100%);background:var(--surface);color:var(--tint);
-    border:1px solid var(--rule);border-radius:var(--radius);box-shadow:var(--shadow-lg);
-    padding:1.6rem 1.6rem 1.4rem;font-family:var(--ui)}
-  .gate-eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.72rem;font-weight:650;
-    letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
-    padding:.3rem .7rem;border-radius:var(--pill);margin-bottom:1rem}
-  .gate-eyebrow::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
-  .gate-box h2{font-family:var(--ui);font-size:1.3rem;font-weight:700;letter-spacing:-.01em;margin:0 0 1rem}
-  .gate-steps{list-style:none;margin:0 0 1.3rem;padding:0;display:grid;gap:.7rem}
-  .gate-step{display:flex;align-items:center;gap:.7rem;font-size:.92rem;line-height:1.35;color:var(--tint)}
-  .gate-step svg{flex:0 0 auto;width:1.4rem;height:1.4rem;color:var(--accent)}
-  .gate-box label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.4rem}
-  .gate-box input{width:100%;font-family:var(--ui);font-size:1.05rem;padding:.6rem .7rem;color:var(--tint);
-    border:1px solid var(--rule-strong);border-radius:var(--radius-sm);background:var(--page);margin-bottom:1rem}
-  .gate-box input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .gate-box button{width:100%;font-family:var(--ui);font-size:.95rem;font-weight:600;cursor:pointer;
-    background:var(--accent);color:#fff;border:1px solid var(--accent);
-    padding:.6rem;border-radius:var(--pill);transition:filter .15s,transform .12s}
-  .gate-box button:hover{filter:brightness(1.08);transform:translateY(-1px)}
-  .gate-box button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-  @media(prefers-reduced-motion:reduce){.gate-box button{transition:none}}
-</style>
 </head>
 <body>
 
@@ -83,15 +29,15 @@
     <h2 id="gate-title">Willkommen</h2>
     <ul class="gate-steps">
       <li class="gate-step">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
         <span>Markiere im Text eine Stelle, um sie zu kommentieren.</span>
       </li>
       <li class="gate-step">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/><path d="m9 12 2 2 4-4"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="3" y="3" width="18" height="18" stroke-dasharray="4 3"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Über „Element kommentieren" eine Box oder ein Bild anklicken.</span>
       </li>
       <li class="gate-step">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16"/><path d="m7 9-3 3 3 3"/><path d="m17 9 3 3-3 3"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 4v16"/><path d="m7 9-3 3 3 3"/><path d="m17 9 3 3-3 3"/></svg>
         <span>Die Notizspalte am Griff schmaler oder breiter ziehen.</span>
       </li>
     </ul>
@@ -102,6 +48,25 @@
 </div>
 
 <div class="wrap">
+
+  <div class="nz-meta">
+    <span>Kommentator</span>
+    <span>Demo</span>
+    <span>MIT-Lizenz</span>
+    <span class="rechts"><a href="https://github.com/daimpad/kommentator">Quelltext</a></span>
+  </div>
+
+  <div class="nz-cover">
+    <p class="nz-eyebrow">Gute digitale Dienste.</p>
+    <h1>Rückmeldungen dort, wo sie hingehören.</h1>
+    <p class="nz-lead">Textstellen markieren, Elemente anklicken, Punkte anheften —
+    jeweils mit einem Kommentar daran. <mark>Ohne Server</mark>, ohne Build,
+    ohne fremde Abhängigkeiten.</p>
+  </div>
+
+  <hr class="nz-rule">
+  <p class="nz-label">Probier es hier aus — markiere einen Satz</p>
+
   <!-- ================= INHALT HIER ERSETZEN ================= -->
   <div data-kommentierbar id="content">
     <h1>Beispieltext zum Ersetzen</h1>
@@ -120,6 +85,15 @@
     Randspalte, mit Namen der jeweiligen Autor:innen.</p>
   </div>
   <!-- ================= ENDE INHALT ================= -->
+
+  <div class="nz-fuss">
+    <a href="https://nozilla.de" aria-label="nozilla">
+      <svg class="nz-logo" viewBox="-6 -718 3054 758" fill="currentColor" role="img" aria-label="nozilla"><path d="M581 0 L332 0 L332 -97 L392 -97 L392 -254 C392 -293 386 -320 372 -337 C360 -354 340 -362 315 -362 C284 -362 261 -352 244 -334 C227 -314 219 -290 218 -259 L218 -97 L278 -97 L278 0 L29 0 L29 -97 L89 -97 L89 -353 L24 -353 L24 -451 L218 -451 L218 -382 C248 -434 296 -460 363 -460 C406 -460 443 -447 474 -422 C505 -397 521 -357 521 -304 L521 -97 L581 -97 Z M1076 -225 C1076 -154 1053 -97 1006 -54 C959 -11 900 10 828 10 C759 10 702 -10 658 -50 C615 -91 593 -147 593 -220 C593 -286 613 -343 653 -390 C693 -437 754 -461 835 -461 C916 -461 977 -438 1016 -390 C1056 -344 1076 -288 1076 -225 Z M943 -229 C943 -275 932 -309 911 -330 C890 -351 864 -362 833 -362 C800 -362 774 -350 754 -326 C736 -303 726 -270 726 -227 C726 -188 735 -156 752 -129 C770 -102 797 -89 832 -89 C865 -89 892 -102 912 -126 C933 -152 943 -186 943 -229 Z M1506 0 L1112 0 L1099 -68 L1341 -354 L1206 -354 L1186 -285 L1093 -293 L1109 -451 L1505 -451 L1515 -383 L1266 -97 L1411 -97 L1432 -168 L1534 -158 Z M1620 -531 L1620 -665 L1749 -665 L1749 -531 Z M1814 0 L1565 0 L1565 -97 L1625 -97 L1625 -353 L1560 -353 L1560 -451 L1754 -451 L1754 -97 L1814 -97 Z M2079 0 L1830 0 L1830 -97 L1890 -97 L1890 -590 L1825 -590 L1825 -688 L2019 -688 L2019 -97 L2079 -97 Z M2344 0 L2095 0 L2095 -97 L2155 -97 L2155 -590 L2090 -590 L2090 -688 L2284 -688 L2284 -97 L2344 -97 Z M2410 -419 C2449 -435 2482 -446 2508 -452 C2535 -457 2566 -460 2603 -460 C2652 -460 2694 -447 2729 -422 C2764 -397 2782 -358 2782 -307 L2782 -111 C2782 -88 2792 -76 2813 -76 C2819 -76 2825 -77 2832 -79 L2833 -11 C2807 3 2780 10 2752 10 C2693 10 2660 -20 2653 -79 L2653 -80 C2640 -57 2622 -37 2598 -18 C2575 1 2545 10 2508 10 C2475 10 2444 0 2414 -19 C2384 -38 2369 -72 2369 -119 C2369 -174 2391 -211 2436 -229 C2480 -247 2528 -256 2579 -256 C2608 -256 2632 -255 2653 -252 L2653 -267 C2653 -290 2650 -313 2644 -335 C2637 -357 2616 -368 2579 -368 C2566 -368 2554 -367 2542 -366 C2532 -364 2521 -360 2510 -355 L2493 -291 L2390 -302 Z M2653 -184 L2653 -190 C2642 -191 2632 -193 2620 -194 C2610 -195 2599 -196 2588 -196 C2565 -196 2545 -192 2528 -184 C2511 -175 2502 -159 2502 -134 C2502 -119 2506 -107 2514 -97 C2522 -87 2536 -82 2555 -82 C2578 -82 2599 -90 2618 -106 C2638 -123 2650 -149 2653 -184 Z"/>
+  <path d="M2865 0 L2865 -163 L3018 -163 L3018 0 Z"/></svg>
+    </a>
+    <span><a href="https://github.com/daimpad/kommentator">github.com/daimpad/kommentator</a></span>
+  </div>
+
 </div>
 
 <!-- (2) Werkzeug + (3) ausgelagerter Start-Code -->
