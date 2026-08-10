@@ -321,9 +321,15 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
   margin:0 0 .4rem;font-family:var(--k-serif);font-style:italic;
   color:var(--k-soft);font-size:.84rem;line-height:1.4;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  /* lange Zeichenketten ohne Leerzeichen (URLs, Pfade) umbrechen lassen —
+     sonst sprengen sie die schmale Notizspalte */
+  overflow-wrap:break-word;
+  overflow-wrap:anywhere;
 }
 .kommentare-note-body{color:var(--k-ink);white-space:pre-wrap;line-height:1.5;
-  font-family:var(--k-serif);font-size:.94rem}
+  font-family:var(--k-serif);font-size:.94rem;
+  overflow-wrap:break-word;
+  overflow-wrap:anywhere}
 .kommentare-note-meta{
   display:flex;justify-content:space-between;gap:.5rem;margin-top:.6rem;
   color:var(--k-soft);font-size:.73rem;align-items:center;

@@ -4,7 +4,7 @@ Tags: annotation, kommentare, markierung, feedback, review
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.15.0
+Stable tag: 1.16.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -146,6 +146,21 @@ Knopf „Per E-Mail senden" öffnet einen lokalen Entwurf, es wird nichts
 serverseitig verschickt.
 
 == Changelog ==
+
+= 1.16.0 =
+Ergebnis einer Prüfung des Werkzeugs auf Code- und Bedienfehler.
+
+* Fix: Wurde eine Notiz gelöscht, während ihr Bearbeiten-Feld offen war, blieb
+  das Feld stehen — der dort getippte Text verschwand beim Speichern
+  kommentarlos. Das Feld schließt jetzt mit der Notiz.
+* Fix: Nach dem Speichern oder Abbrechen blieb der Tastaturfokus im
+  ausgeblendeten Eingabefeld hängen; die Tastaturbedienung begann danach im
+  Nichts. Der Fokus springt jetzt auf die erzeugte Markierung.
+* Fix: Lange Zeichenketten ohne Leerzeichen (URLs, Pfade, Prüfsummen)
+  sprengten die Notizspalte seitlich. Sie brechen jetzt um.
+* Barrierefreiheit: Notizen tragen einen zugänglichen Namen — Vorlesehilfen
+  kündigten bisher nur „Listenelement" an, obwohl die Notiz zur Markierung
+  springt.
 
 = 1.15.0 =
 * Neu: Feld „Geheimwort". Es geht bei jeder Meldung als „token" mit, das Apps
