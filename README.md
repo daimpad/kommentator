@@ -150,7 +150,7 @@ npx playwright install chromium
 npm test              # Werkzeug (Playwright) + Plugin-Logik (PHP)
 ```
 
-129 Akzeptanz-Checks im Browser, 70 Prüfungen der WordPress-Plugin-Logik gegen
+138 Akzeptanz-Checks im Browser, 70 Prüfungen der WordPress-Plugin-Logik gegen
 eine Attrappe — beides ohne Installation lauffähig.
 
 ## 📄 Lizenz

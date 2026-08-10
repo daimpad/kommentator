@@ -1023,6 +1023,98 @@ check("Geheimwort: wird bei gesetztem Token mitgeschickt",
 check("Geheimwort: fehlt im Brief, wenn keines gesetzt ist",
   tok.length === 2 && !("token" in tok[1]));
 
+// --- Fokus verlässt das ausgeblendete Popover ---------------------------
+await load();
+const fokusFluss = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "ff"; host.innerHTML = "<p>Ein Satz fuer den Fokus.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const inst = window.Kommentare.init({ container: "#ff", notes: "floating", autor: "FF" });
+  const waehle = () => {
+    const p = host.querySelector("p");
+    const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let n; while ((n = w.nextNode())) { if (n.nodeValue.length >= 4) break; }
+    const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, 4);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  };
+  waehle();
+  inst._composeText.value = "gespeichert";
+  inst._saveComment();
+  const nachSpeichern = {
+    imPopover: inst._composeEl.contains(document.activeElement),
+    aufMarkierung: document.activeElement &&
+      document.activeElement.classList.contains("kommentare-mark")
+  };
+  waehle();
+  inst._closeCompose();
+  const nachAbbruch = { imPopover: inst._composeEl.contains(document.activeElement) };
+  inst.destroy(); host.remove();
+  return { nachSpeichern, nachAbbruch };
+});
+check("Fokus: verlässt nach dem Speichern das Popover",
+  fokusFluss.nachSpeichern.imPopover === false);
+check("Fokus: landet auf der erzeugten Markierung",
+  fokusFluss.nachSpeichern.aufMarkierung === true);
+check("Fokus: verlässt das Popover auch beim Abbrechen",
+  fokusFluss.nachAbbruch.imPopover === false);
+
+// --- Löschen bei offenem Bearbeiten-Popover -----------------------------
+const beimLoeschen = await page.evaluate(() => {
+  const host = document.createElement("div");
+  host.id = "bl"; host.innerHTML = "<p>Loeschen waehrend offen.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const inst = window.Kommentare.init({ container: "#bl", notes: "floating", autor: "BL" });
+  const p = host.querySelector("p");
+  const r = document.createRange(); r.setStart(p.firstChild, 0); r.setEnd(p.firstChild, 8);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  inst._composeText.value = "erste Fassung";
+  inst._saveComment();
+  const id = [...inst.annos.keys()][0];
+  inst._startEdit(id);
+  const offenVorher = !inst._composeEl.classList.contains("kommentare-hidden");
+  inst._removeAnno(id);
+  const res = {
+    offenVorher,
+    offenNachher: !inst._composeEl.classList.contains("kommentare-hidden"),
+    editingHaengt: inst._editing === id
+  };
+  inst.destroy(); host.remove();
+  return res;
+});
+check("Löschen: Popover war offen", beimLoeschen.offenVorher === true);
+check("Löschen: Popover schließt mit der Notiz", beimLoeschen.offenNachher === false);
+check("Löschen: kein hängender Bearbeiten-Zustand", beimLoeschen.editingHaengt === false);
+
+// --- Lange Zeichenketten sprengen die Notizspalte nicht -----------------
+await load();
+await page.click(".kommentare-fab");
+const umbruch = await page.evaluate(() => {
+  const inst = window.instanz;
+  inst.import({ annotations: [{ id: "lang1", creator: { name: "Gast" },
+    body: [{ value: "Zeichenketteohneleerzeichen".repeat(25) }],
+    target: { selector: [{ type: "TextQuoteSelector", exact: "Platzhaltertext" }] } }] });
+  const body = inst._notesEl.querySelector('[data-anno-id="lang1"] .kommentare-note-body');
+  return {
+    breite: body.scrollWidth,
+    liste: inst._notesEl.clientWidth,
+    laeuftUeber: body.scrollWidth > inst._notesEl.clientWidth + 2
+  };
+});
+check("Umbruch: langer Text bleibt in der Notizspalte", umbruch.laeuftUeber === false);
+
+// --- Notizen tragen einen zugänglichen Namen ---------------------------
+const notizName = await page.evaluate(() => {
+  const n = window.instanz._notesEl.querySelector(".kommentare-note");
+  return { label: n.getAttribute("aria-label"), rolle: n.getAttribute("role"),
+           tab: n.getAttribute("tabindex") };
+});
+check("A11y: Notiz hat einen aria-label",
+  !!notizName.label && notizName.label.indexOf("Gast") === 0);
+check("A11y: Notiz bleibt Listenelement und fokussierbar",
+  notizName.rolle === "listitem" && notizName.tab === "0");
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");

@@ -73,7 +73,13 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `instanz.destroy()` | entfernt Markierungen, stellt DOM-Ausgangszustand wieder her |
 
 Mehrere Instanzen auf einer Seite stören sich nicht (instanz-lokaler Zustand,
-gescopte DOM-Abfragen).
+gescopte DOM-Abfragen); zwei Instanzen auf **demselben** Container werden mit
+einer Fehlermeldung abgelehnt.
+
+**Fokusführung:** Das Eingabe-Popover gibt den Fokus beim Schließen wieder ab —
+nach dem Speichern auf die erzeugte Markierung, sonst schlicht weg. Ein Fokus,
+der im ausgeblendeten Popover zurückbleibt, lässt die Tastaturbedienung ins
+Leere laufen.
 
 ### Beispiel mit allen gängigen Optionen
 

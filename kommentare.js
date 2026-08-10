@@ -68,6 +68,7 @@
     mehrereKommentare:  " Kommentare",
     leseFehler:         "Datei konnte nicht gelesen werden: ",
     markierungAria:     "Kommentar",        // Präfix für aria-label der Markierung
+    notizSpringt:       "zur Markierung springen",
     von:                "von",
     hilfeBtn:           "?",
     hilfeAria:          "Hilfe anzeigen",
@@ -1358,12 +1359,26 @@
       this._composeText.value = current;
       this._composeText.focus();
     },
-    _closeCompose: function () {
+    _closeCompose: function (fokusAuf) {
+      // Der Fokus darf nicht im ausgeblendeten Popover zurückbleiben — sonst
+      // beginnt die Tastaturbedienung danach im Nichts.
+      if (this._composeEl.contains(document.activeElement)) {
+        try { document.activeElement.blur(); } catch (_) {}
+      }
       this._composeEl.classList.add("kommentare-hidden");
       this.pending = null;
       this.pendingEl = null;
       this.pendingPoint = null;
       this._editing = null;
+      if (fokusAuf) this._fokusAufAnno(fokusAuf);
+    },
+    // Nach dem Speichern dorthin springen, worum es ging: erst die Markierung,
+    // sonst die Notiz.
+    _fokusAufAnno: function (id) {
+      var teile = this._marksOf(id);
+      var ziel = teile.length ? teile[0]
+        : this._marginEl.querySelector('.kommentare-note[data-anno-id="' + cssEscape(id) + '"]');
+      if (ziel && ziel.focus) { try { ziel.focus(); } catch (_) {} }
     },
 
     _saveComment: function () {
@@ -1374,7 +1389,7 @@
         var a = this.annos.get(this._editing);
         if (!val || !a) { this._closeCompose(); return; }
         a.body = val;
-        this._closeCompose();
+        this._closeCompose(a.id);
         this._render();
         if (this.onUpdate) this.onUpdate(toW3C(a));
         this._webhookAuto(a, this.texte.aktionGeaendert);
@@ -1392,7 +1407,7 @@
           body: val, author: this.autor, created: new Date().toISOString()
         };
         this.annos.set(eid, eanno);
-        this._closeCompose();
+        this._closeCompose(eid);
         this._render();
         if (this.onCreate) this.onCreate(toW3C(eanno));
         this._webhookAuto(eanno);
@@ -1410,7 +1425,7 @@
           rx: pp.rx, ry: pp.ry, body: val, author: this.autor, created: new Date().toISOString()
         };
         this.annos.set(pid, panno);
-        this._closeCompose();
+        this._closeCompose(pid);
         this._render();
         if (this.onCreate) this.onCreate(toW3C(panno));
         this._webhookAuto(panno);
@@ -1429,7 +1444,7 @@
       };
       this.annos.set(id, anno);
       this._wrapRange(p.start, p.end, id);
-      this._closeCompose();
+      this._closeCompose(id);
       this._render();
       if (this.onCreate) this.onCreate(toW3C(anno));
       this._webhookAuto(anno);
@@ -1464,6 +1479,11 @@
         note.dataset.annoId = a.id;
         note.setAttribute("role", "listitem");
         note.setAttribute("tabindex", "0");
+        // Ohne Namen kündigt eine Vorlesehilfe nur „Listenelement" an, obwohl
+        // die Notiz anklickbar ist und zur Markierung springt.
+        note.setAttribute("aria-label",
+          (a.author || T.platzhalterName) + ": " +
+          String(a.body || "").slice(0, 80) + " — " + T.notizSpringt);
         var mine = a.author === self.autor;
         var quoteEl = el("blockquote");
         if (a.kind === "element") {
@@ -1553,6 +1573,10 @@
 
     _removeAnno: function (id) {
       var weg = this.annos.get(id); // vor dem Löschen merken (für die Meldung)
+      // Wird gerade genau diese Notiz bearbeitet, muss das Popover mit weg —
+      // sonst tippt man in ein Feld, dessen Notiz es nicht mehr gibt, und der
+      // Text verschwindet beim Speichern kommentarlos.
+      if (this._editing === id) this._closeCompose();
       this.annos.delete(id);
       // jedes Teilstück auflösen — sonst bleiben sichtbare Markierungen ohne
       // zugehörige Notiz stehen
