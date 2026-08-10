@@ -275,11 +275,21 @@ const SPALTEN = ['Zeitpunkt', 'Seiten-URL', 'Seitentitel', 'Autor:in', 'Art',
                  'Sitzung', 'Browser', 'Sprache', 'Bildschirm'];
 const SPALTE_ID = 9; // Position von 'Kommentar-ID' in SPALTEN
 
+// Gemeinsames Geheimwort — denselben Wert unter „Einstellungen → Kommentator"
+// ins Feld „Geheimwort" eintragen. Leer lassen = keine Prüfung (nicht
+// empfohlen, sobald die Seite öffentlich erreichbar ist).
+const GEHEIMWORT = 'hier-dein-langes-zufaelliges-wort';
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000); // gleichzeitige Meldungen nacheinander abarbeiten
   try {
     const daten = JSON.parse(e.postData.contents);
+    // Fremde Einträge abweisen: die Adresse steht im Seitenquelltext und
+    // lässt sich nicht geheim halten, das Geheimwort schon.
+    if (GEHEIMWORT && daten.token !== GEHEIMWORT) {
+      return ContentService.createTextOutput('abgelehnt');
+    }
     const blatt = holeBlatt();
     const letzte = blatt.getLastRow();
     const ids = letzte > 1
@@ -333,7 +343,11 @@ angezeigte Adresse kopieren; sie endet auf `/exec`.
 > Skript-Änderung: **Bereitstellen → Bereitstellungen verwalten → bearbeiten →
 > neue Version**, sonst läuft weiter der alte Stand.
 
-### Schritt 4 — Adresse eintragen
+### Schritt 4 — Adresse und Geheimwort eintragen
+
+**WordPress** — im Backend: **Einstellungen → Kommentator**, die `/exec`-Adresse
+ins Feld *Adresse* und dasselbe Geheimwort wie im Skript ins Feld *Geheimwort*.
+Speichern, fertig.
 
 **Statische Einbindung** (`demo.js` bzw. dein Start-Code):
 
@@ -341,23 +355,26 @@ angezeigte Adresse kopieren; sie endet auf `/exec`.
 Kommentare.init({
   container: '[data-kommentierbar]',
   autor: name,
-  webhook: 'https://script.google.com/macros/s/AKfycb…/exec'
+  webhook: 'https://script.google.com/macros/s/AKfycb…/exec',
+  webhookToken: 'hier-dein-langes-zufaelliges-wort'
 });
 ```
 
-**WordPress** — einfach im Backend: **Einstellungen → Kommentator**, Adresse ins
-Feld *Adresse* eintragen, speichern. Fertig, kein Code nötig.
+> **Wozu das Geheimwort?** Die `/exec`-Adresse steht im Seitenquelltext — bei
+> einem Werkzeug, das im Browser läuft, geht das nicht anders. Ohne Prüfung
+> könnte jede:r, der sie liest, Zeilen in deine Tabelle schreiben. Mit
+> Geheimwort weist das Skript alles ab, was den richtigen Wert nicht mitbringt.
+> Nimm eine lange Zufallszeichenkette, keinen Namen.
 
 <details>
-<summary>Alternativ per <code>functions.php</code> (falls du die Adresse lieber im Theme führst)</summary>
+<summary>Alternativ per <code>functions.php</code></summary>
 
 ```php
-add_filter('kommentare_webhook', function () {
-    return 'https://script.google.com/macros/s/AKfycb…/exec';
-});
+add_filter('kommentare_webhook', fn() => 'https://script.google.com/macros/s/AKfycb…/exec');
+add_filter('kommentare_webhook_token', fn() => 'hier-dein-langes-zufaelliges-wort');
 ```
 
-Der Filter hat Vorrang vor der gespeicherten Einstellung.
+Filter haben Vorrang vor den gespeicherten Einstellungen.
 </details>
 
 Fertig. Ab jetzt landet jeder neue, geänderte und gelöschte Kommentar
@@ -385,7 +402,7 @@ den Kommentierenden ausdrücklich.
 | Keine Empfangsbestätigung | Der Versand ist „abschicken und gut“ (CORS lässt keine lesbare Antwort zu). „Alle senden“ ist das Netz; Doppelte fängt die Kommentar-ID ab. |
 | Kein Rückkanal | Die Tabelle füllt sich, aber die Seite liest **nicht** aus ihr. Gemeinsames Sehen läuft weiterhin über „Kommentare laden“ (Abschnitt 4). |
 | Datenschutzerklärung | Unter *Werkzeuge → Datenschutz* liegt ein fertiger Textbaustein, sobald das Plugin aktiv ist. |
-| Öffentliche Adresse | Die `/exec`-Adresse steht im Seitenquelltext jeder Seite, auf der das Werkzeug läuft — bei einem Client-Werkzeug unvermeidbar. Wer sie kennt, kann Zeilen schreiben. Deshalb ist „Im Frontend nur angemeldete Nutzer:innen" ab Werk gesetzt. |
+| Öffentliche Adresse | Die `/exec`-Adresse steht im Seitenquelltext — bei einem Client-Werkzeug unvermeidbar. Zwei Gegenmittel, beide ab Werk vorgesehen: das **Geheimwort** (das Skript weist fremde Einträge ab) und **„Im Frontend nur angemeldete Nutzer:innen"** (Vorgabe). In WordPress lädt der Browser Adresse und Geheimwort erst nach der Anmeldung nach — im HTML stehen sie nicht mehr. |
 | Apps-Script-Kontingente | Für Review-Runden weit ausreichend; bei sehr hohem Aufkommen sind Cloudflare Worker oder Airtable die robustere Wahl — die Adresse tauschst du einfach aus, die Nutzlast bleibt gleich. |
 
 Aufbau der Nutzlast: [Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md).

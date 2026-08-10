@@ -995,6 +995,34 @@ check("Import: unerwartete Werte werfen nicht",
   importRobust.falscheListe === 0 && importRobust.muell === 0);
 check("Import: kaputtes JSON meldet sich weiterhin", importRobust.kaputtesJson === "SyntaxError");
 
+// --- Geheimwort für die Sammelstelle ------------------------------------
+const HOOK5 = "https://beispiel.test/token";
+const tok = [];
+await page.route(HOOK5, async (route) => {
+  tok.push(JSON.parse(route.request().postData() || "{}"));
+  await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+});
+await load();
+await page.evaluate((url) => {
+  const host = document.createElement("div");
+  host.id = "tk"; host.innerHTML = "<p>Ein Satz mit Geheimwort.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  const mit = window.Kommentare.init({ container: "#tk", notes: "floating", autor: "T",
+                                       webhook: url, webhookToken: "losungswort" });
+  mit._webhookSend([mit._webhookEntry({ id: "t1", kind: "text", quote: "x",
+    body: "mit", author: "T", created: "" }, "neu")]);
+  mit.destroy();
+  const ohne = window.Kommentare.init({ container: "#tk", notes: "floating", autor: "T", webhook: url });
+  ohne._webhookSend([ohne._webhookEntry({ id: "t2", kind: "text", quote: "x",
+    body: "ohne", author: "T", created: "" }, "neu")]);
+  ohne.destroy(); host.remove();
+}, HOOK5);
+for (let i = 0; i < 40 && tok.length < 2; i++) await page.waitForTimeout(100);
+check("Geheimwort: wird bei gesetztem Token mitgeschickt",
+  tok.length === 2 && tok[0].token === "losungswort");
+check("Geheimwort: fehlt im Brief, wenn keines gesetzt ist",
+  tok.length === 2 && !("token" in tok[1]));
+
 await browser.close();
 const failed = results.filter((r) => !r[1]);
 console.log("\n" + (results.length - failed.length) + "/" + results.length + " checks passed");

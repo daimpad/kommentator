@@ -30,6 +30,16 @@ function get_option($k, $d = false) { return $GLOBALS['opt'][$k] ?? $d; }
 function update_option($k, $v) { $GLOBALS['opt'][$k] = $v; }
 function delete_option($k) { unset($GLOBALS['opt'][$k]); }
 function register_setting($g, $n, $a = array()) {}
+function register_rest_route($ns, $route, $args = array()) { $GLOBALS['rest'][$ns . $route] = $args; }
+function rest_url($p = '') { return 'https://example.org/wp-json/' . ltrim($p, '/'); }
+function rest_ensure_response($d) { return new AttrappeAntwort($d); }
+function wp_create_nonce($a = -1) { return 'nonce123'; }
+function is_customize_preview() { return false; }
+class AttrappeAntwort {
+    public $daten; public $header = array();
+    public function __construct($d) { $this->daten = $d; }
+    public function header($k, $v) { $this->header[$k] = $v; }
+}
 function add_options_page() {}
 function current_user_can($c) { return true; }
 function is_user_logged_in() { return !empty($GLOBALS['eingeloggt']); }
@@ -196,6 +206,56 @@ update_option('kommentare_optionen', array('webhook' => 'https://x.test/"><scrip
 ob_start(); kommentare_einstellungsseite(); $html = ob_get_clean();
 pruef('Seite: rendert Formular', strpos($html, 'kommentare_optionen[webhook]') !== false);
 pruef('Seite: Wert ist maskiert', strpos($html, '<script>alert(1)') === false);
+
+
+// --- Nachladen: was steht im HTML, was kommt ueber den Endpunkt? ---
+$GLOBALS['filters'] = array();   // Filter des vorigen Abschnitts wirken sonst nach
+update_option('kommentare_optionen', array(
+    'webhook' => 'https://script.google.com/macros/s/GEHEIM/exec',
+    'webhook_token' => 'losungswort', 'email' => 'a@b.de',
+    'frontend' => 1, 'nur_eingeloggt' => 1,
+));
+$GLOBALS['eingeloggt'] = true;
+
+$config = kommentare_build_config(false);
+$persoenlich = array();
+foreach (kommentare_persoenliche_schluessel() as $k) {
+    if (array_key_exists($k, $config)) { $persoenlich[$k] = $config[$k]; unset($config[$k]); }
+}
+$config['autor'] = 'Gast';
+$html = wp_json_encode($config);
+
+pruef('Nachladen: Sammelstellen-Adresse steht NICHT im HTML', strpos($html, 'GEHEIM') === false);
+pruef('Nachladen: Geheimwort steht NICHT im HTML', strpos($html, 'losungswort') === false);
+pruef('Nachladen: E-Mail steht NICHT im HTML', strpos($html, 'a@b.de') === false);
+pruef('Nachladen: Autorname steht NICHT im HTML', strpos($html, '"Test"') === false);
+pruef('Nachladen: HTML enthaelt weiterhin den Container', strpos($html, '"container"') !== false);
+pruef('Nachladen: HTML faellt auf Gast zurueck', strpos($html, '"autor":"Gast"') !== false);
+
+$antwort = kommentare_rest_konfiguration();
+pruef('Endpunkt: liefert Adresse', $antwort->daten['webhook'] === 'https://script.google.com/macros/s/GEHEIM/exec');
+pruef('Endpunkt: liefert Geheimwort', $antwort->daten['webhookToken'] === 'losungswort');
+pruef('Endpunkt: liefert Autorname', $antwort->daten['autor'] === 'Test');
+pruef('Endpunkt: liefert E-Mail', $antwort->daten['email'] === 'a@b.de');
+pruef('Endpunkt: nur persoenliche Werte', array_keys($antwort->daten) === kommentare_persoenliche_schluessel());
+pruef('Endpunkt: verbietet Zwischenspeichern',
+    isset($antwort->header['Cache-Control']) && strpos($antwort->header['Cache-Control'], 'no-store') !== false);
+
+$GLOBALS['eingeloggt'] = true;
+pruef('Endpunkt: angemeldet erlaubt', kommentare_rest_erlaubt() === true);
+$GLOBALS['eingeloggt'] = false;
+pruef('Endpunkt: Gast abgewiesen, wenn nur angemeldet', kommentare_rest_erlaubt() === false);
+update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 0));
+pruef('Endpunkt: Gast erlaubt, wenn oeffentlich', kommentare_rest_erlaubt() === true);
+update_option('kommentare_optionen', array('frontend' => 0, 'nur_eingeloggt' => 0));
+pruef('Endpunkt: Gast abgewiesen, wenn Frontend aus', kommentare_rest_erlaubt() === false);
+
+$t = kommentare_optionen_pruefen(array('webhook_token' => '  mein Wort  '));
+pruef('Geheimwort: wird getrimmt gespeichert', $t['webhook_token'] === 'mein Wort');
+$t = kommentare_optionen_pruefen(array('webhook_token' => str_repeat('x', 400)));
+pruef('Geheimwort: auf 200 Zeichen begrenzt', strlen($t['webhook_token']) === 200);
+$t = kommentare_optionen_pruefen(array('webhook_token' => array('x')));
+pruef('Geheimwort: Array wird verworfen', $t['webhook_token'] === '');
 
 echo "\n$ok/" . ($ok + $bad) . " Prüfungen bestanden\n";
 exit($bad ? 1 : 0);

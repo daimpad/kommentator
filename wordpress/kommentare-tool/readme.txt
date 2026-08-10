@@ -4,7 +4,7 @@ Tags: annotation, kommentare, markierung, feedback, review
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.14.0
+Stable tag: 1.15.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -53,6 +53,9 @@ ohne Code anzufassen:
 
 * **Adresse der Sammelstelle** – leer = aus (dann verlässt kein Kommentar den
   Browser). Mit Adresse landen neue Kommentare automatisch in der Tabelle.
+* **Geheimwort** – wird bei jeder Meldung mitgeschickt; das Apps Script weist
+  Einträge ohne den richtigen Wert ab. Empfohlen, sobald eine Sammelstelle
+  läuft: die Adresse steht (bei statischer Einbindung) im Seitenquelltext.
 * **Automatisch melden** – aus = nur der Knopf „Alle senden" schickt.
 * **Laden im Frontend / im Backend** – je einzeln an- und abschaltbar.
 * **Im Frontend nur angemeldete Nutzer:innen** – **ab Werk eingeschaltet.** Die
@@ -143,6 +146,20 @@ Knopf „Per E-Mail senden" öffnet einen lokalen Entwurf, es wird nichts
 serverseitig verschickt.
 
 == Changelog ==
+
+= 1.15.0 =
+* Neu: Feld „Geheimwort". Es geht bei jeder Meldung als „token" mit, das Apps
+  Script kann damit fremde Einträge abweisen. Bisher konnte jede:r, der die
+  Adresse der Sammelstelle kannte, in die Tabelle schreiben. Das Beispiel im
+  Tutorial prüft den Wert jetzt.
+* Neu: Autorname, Adresse der Sammelstelle, Geheimwort und E-Mail-Empfänger
+  stehen nicht mehr im ausgelieferten HTML. Der Browser lädt sie über
+  /wp-json/kommentare-tool/v1/konfiguration nach; der Endpunkt prüft die
+  Berechtigung erneut und verbietet das Zwischenspeichern. Damit kann auch ein
+  fehlgeleiteter Seiten-Cache nichts Persönliches an Fremde ausliefern, und
+  nicht angemeldete Besucher:innen sehen die Adresse gar nicht erst.
+  Scheitert der Abruf, startet das Werkzeug ohne Namen und ohne Sammelstelle.
+* Neuer Filter kommentare_webhook_token und kommentare_rest_erlaubt.
 
 = 1.14.0 =
 Ergebnis einer Sicherheits- und Robustheitsprüfung. Kein Befund war von
