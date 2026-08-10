@@ -14,7 +14,9 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 |---|---|
 | `kommentare.js` | Kernwerkzeug. `Kommentare.init(options)` → Instanz. Eine IIFE, `Instanz`-Prototyp, W3C-Konvertierung. |
 | `kommentare.css` | Alle Stile, unter dem Präfix `kommentare-` gekapselt. Themebar über CSS-Variablen auf `.kommentare-scope`. |
-| `demo.html` / `demo.js` | Demo-Seite (Namens-Modal, Floating-Menü, Info-Modal). `demo.js` ist **nur** Demo-Glue, nicht Teil des Werkzeugs. |
+| `demo.html` / `demo.js` | Demo-Seite (Namens-Modal, Floating-Menü). `demo.js` ist **nur** Demo-Glue, nicht Teil des Werkzeugs. |
+| `demo.css` | Erscheinungsbild der Demo-Seite im **nozilla-CI**. Färbt das Werkzeug ausschließlich über dessen CSS-Variablen um — `kommentare.css` bleibt neutral. |
+| `nozilla/` | Aus [nozilla-ci](https://github.com/daimpad/nozilla-ci) übernommen: Logo und zwei Schriftschnitte (OFL). Nur für die Demo-Seite. |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` für GitHub Pages. |
 | `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. |
 | `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Testquelle fürs Werkzeug. |
@@ -107,4 +109,9 @@ läuft weiter über Pages/`main`. Diese Trennung nicht vermischen.
   soll ohne Transpiler überall laufen.
 - CSS: neue Regeln unter dem `kommentare-`-Präfix; Farben/Radien/Schatten als
   CSS-Variablen, damit alles themebar bleibt.
+- **Erscheinungsbild gehört in `demo.css`, nicht in `kommentare.css`.** Die
+  Demo trägt das nozilla-CI (Papier `#FFFEE5`, Tinte `#000`, Signal-Grün
+  `#00FF9C` nur für Aktionen, Radius immer 0, harte Versatz-Schatten). Das
+  Werkzeug selbst bleibt farblich neutral — sonst kann es niemand sonst
+  einsetzen.
 - Keine `console.log`-Reste, keine toten Optionen.

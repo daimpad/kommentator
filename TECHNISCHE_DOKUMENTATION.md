@@ -16,6 +16,8 @@ interne Funktionsweise des Kommentar-Werkzeugs.
 | `kommentare.css` | Gekapselte Stile (Präfix `kommentare-`, themebar über CSS-Variablen, Dark-Mode) |
 | `demo.html` | Einbindungsbeispiel / Spielwiese |
 | `demo.js` | ausgelagerter Start-Code der Demo-Seite (nur für die Demo) |
+| `demo.css` | Erscheinungsbild der Demo-Seite (nozilla-CI); themt das Werkzeug über dessen CSS-Variablen |
+| `nozilla/` | Logo + zwei Schriftschnitte aus dem nozilla-CI (OFL), nur für die Demo |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` (für GitHub Pages) |
 | `wordpress/kommentare-tool/` | installierbares WordPress-Plugin (bündelt die Assets) |
 | `test/acceptance.mjs` | Headless-Akzeptanztest des Werkzeugs (Playwright) |

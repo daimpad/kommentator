@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/kommentator-hero.svg" alt="" width="900">
+
 # 📝 Kommentator
 
 ### Textstellen markieren & kommentieren — als einbindbare, statische Dateien
@@ -113,6 +115,12 @@ Das war alles — Randspalte und Menü entstehen automatisch. Ausführlich im
 | **Statische Seite** | `kommentare.css` + `kommentare.js` einbinden, `init(...)` aufrufen |
 | **WordPress** | Fertiges Plugin-ZIP aus den [Releases](../../releases) (Tag `wp-v*`) hochladen → siehe [Tutorial](TUTORIAL.md#5-in-wordpress-installieren) |
 | **GitHub Pages** | Dateien pushen, Pages auf `main`/root → [Tutorial](TUTORIAL.md#6-veröffentlichen-auf-github-pages) |
+
+Die [Demo-Seite](https://daimpad.github.io/kommentator/) trägt das
+[nozilla-Erscheinungsbild](https://github.com/daimpad/nozilla-ci) — umgesetzt
+allein über `demo.css` und die CSS-Variablen des Werkzeugs. `kommentare.css`
+bleibt dabei unverändert und neutral: dasselbe Werkzeug nimmt jedes andere
+Erscheinungsbild genauso an.
 
 ## 🔒 Kurz zur Sicherheit
 
