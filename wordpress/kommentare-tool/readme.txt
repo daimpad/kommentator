@@ -1,14 +1,14 @@
 === Kommentare (Textstellen-Annotation) ===
 Contributors: daimpad
-Tags: annotation, kommentare, markierung, annotation, text
+Tags: annotation, kommentare, markierung, feedback, review
 Requires at least: 5.0
+Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.13.0
+Stable tag: 1.14.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
-Textstellen in Beiträgen/Seiten markieren, kommentieren, als JSON exportieren
-und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
+Textstellen markieren und kommentieren, als JSON exportieren, Rückmeldungen zusammenführen. Ohne Backend, ohne externe Abhängigkeiten.
 
 == Beschreibung ==
 
@@ -114,7 +114,74 @@ Beispiel (functions.php des Themes):
         return $load && is_user_logged_in();
     });
 
+== Externe Dienste ==
+
+Im Auslieferungszustand kontaktiert das Plugin **keinen** externen Dienst; es
+verlässt kein Kommentar den Browser.
+
+Wird unter „Einstellungen → Kommentator" eine **Sammelstelle** eingetragen,
+meldet der Browser jede Änderung an diese Adresse. Übermittelt werden:
+Zeitpunkt, Seiten-Adresse (ohne Abfrageteil) und Seitentitel, angezeigter Name,
+Art und Ort der Markierung, Kommentartext, Kommentar-Kennung, Browserkennung,
+Spracheinstellung und Bildschirmgröße. **Keine IP-Adresse.** Zur Gruppierung
+dient eine zufällige Kennung im Sitzungsspeicher des Browsers, die mit dem
+Schließen des Tabs verfällt; Cookies werden nicht gesetzt.
+
+Empfänger ist der Betreiber der eingetragenen Adresse — üblicherweise ein
+eigenes Google Sheet hinter einem Apps-Script-Web-App. Liegt die Sammelstelle
+außerhalb der EU, findet insoweit eine Drittlandübermittlung statt; die
+IP-Adresse ist dem Empfänger dabei auf Transportebene technisch bekannt.
+Ein Textbaustein für die Datenschutzerklärung steht unter
+„Werkzeuge → Datenschutz" bereit.
+
+Die Adresse der Sammelstelle steht im Seitenquelltext und lässt sich nicht
+geheim halten. Auf öffentlich erreichbaren Seiten deshalb „Im Frontend nur
+angemeldete Nutzer:innen" gesetzt lassen (Vorgabe).
+
+Ist eine E-Mail-Adresse hinterlegt, steht auch sie im Seitenquelltext — der
+Knopf „Per E-Mail senden" öffnet einen lokalen Entwurf, es wird nichts
+serverseitig verschickt.
+
 == Changelog ==
+
+= 1.14.0 =
+Ergebnis einer Sicherheits- und Robustheitsprüfung. Kein Befund war von
+unangemeldeten Dritten ausnutzbar; behoben wurden Absturz- und Kollisionspfade.
+
+* Fix: Die Kombination „ganze Seite" + Notizen als Randspalte hängte den
+  <body> aus dem Dokument aus — die Seite blieb funktionslos und riss jedes
+  weitere Skript mit. Für body/html erzwingt das Werkzeug jetzt schwebende
+  Notizen.
+* Fix: Ein verschachteltes Formularfeld beim Speichern konnte einen fatalen
+  Fehler auf options.php auslösen (weißer Bildschirm, nichts gespeichert).
+* Fix: Die Adresse der Sammelstelle wird jetzt zusätzlich mit wp_parse_url()
+  geprüft — protokollrelative Adressen wurden vorher gespeichert und der
+  Versand blieb still aus.
+* Fix: „Kommentare laden" blockierte auf großen Seiten über eine Sekunde
+  (1500 Absätze, 100 Kommentare: 1046 ms -> 52 ms).
+* Datenschutz: An die Sammelstelle geht nur noch Herkunft und Pfad der Seite,
+  nicht mehr der Abfrageteil — in wp-admin standen dort _wpnonce, Aktionen und
+  Beitrags-IDs. Beim Löschen wird der Kommentartext nicht erneut übertragen.
+  Die Sitzungskennung entsteht nur noch, wenn eine Sammelstelle konfiguriert
+  ist. Neuer Textbaustein unter „Werkzeuge → Datenschutz".
+* Caching: Seiten mit personalisierter Konfiguration setzen DONOTCACHEPAGE —
+  ein Voll-Seiten-Cache für Angemeldete hätte die Einstellung „nur angemeldet"
+  ausgehebelt und fremde Namen sowie die Sammelstellen-Adresse ausgeliefert.
+* Kollisionen: Das Werkzeug lädt nicht mehr im Customizer, im Site-Editor, in
+  den Block-Widgets, in den Datei-Editoren und auf seiner eigenen
+  Einstellungsseite (Filter kommentare_admin_ausnahmen). Der Start wiederholt
+  sich jetzt, wenn ein Optimierungs-Plugin das Skript verzögert lädt, und
+  läuft in try/catch — vorher fehlte das Werkzeug spurlos bzw. riss ein
+  zusammengefasstes Skriptbündel mit. Textknoten werden nur noch am
+  betroffenen Elternknoten zusammengeführt statt dokumentweit (Block-Editor).
+  Asset-Handles heißen jetzt kommentare-tool.
+* Standards: neue uninstall.php (die Option bleibt nicht mehr zurück),
+  Text Domain auf den Plugin-Slug korrigiert, readme-Kopf vervollständigt
+  (Tested up to), Abschnitt „Externe Dienste", Hinweis im Netzwerk-Admin.
+* Ehrlichere Rückmeldung: „Abgeschickt" statt „Gesendet" — eine
+  Empfangsbestätigung ist technisch nicht möglich.
+* Stapelebenen (z-index) sind jetzt über CSS-Variablen anpassbar, falls ein
+  Chat-Widget oder Consent-Banner darüber liegen muss.
 
 = 1.13.0 =
 * Geändert: „Im Frontend nur angemeldete Nutzer:innen" ist jetzt die VORGABE

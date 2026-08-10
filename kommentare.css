@@ -46,6 +46,13 @@
   --k-serif:"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;
 
   /* Layout */
+  /* Stapelebenen — anpassbar, falls ein Chat-Widget oder Consent-Banner
+     hoeher liegen muss: einfach --k-z-* auf .kommentare-scope ueberschreiben */
+  --k-z-overlay:2147482980;
+  --k-z-hover:2147482990;
+  --k-z-ui:2147483000;
+  --k-z-modal:2147483001;
+
   --k-gap:2.75rem;
   --k-doc-width:66ch;
   --k-break:820px;
@@ -91,7 +98,10 @@
 
 /* ---- Layout (wird erzeugt, wenn keine Mount-Elemente übergeben werden) ---- */
 .kommentare{
+  /* Hintergrund MIT setzen: sonst steht im Dunkelmodus dunkle Schrift auf
+     dem hellen Grund der Seite (bzw. umgekehrt). */
   color:var(--k-ink);
+  background:var(--k-paper);
   font-family:var(--k-serif);
   line-height:1.65;
 }
@@ -238,7 +248,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 }
 /* Umriss, der im Element-Modus dem Element unter dem Zeiger folgt */
 .kommentare-hover{
-  position:absolute;z-index:2147482990;pointer-events:none;box-sizing:border-box;
+  position:absolute;z-index:var(--k-z-hover);pointer-events:none;box-sizing:border-box;
   border:2px dashed var(--k-el);border-radius:6px;
   background:color-mix(in srgb, var(--k-el) 10%, transparent);
 }
@@ -250,7 +260,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 }
 /* Overlay-Ebene mit den gesetzten Markierungen (Seiten-Koordinaten) */
 .kommentare-overlay{position:absolute;top:0;left:0;width:0;height:0;overflow:visible;
-  z-index:2147482980;pointer-events:none}
+  z-index:var(--k-z-overlay);pointer-events:none}
 .kommentare-el-mark{
   position:absolute;box-sizing:border-box;pointer-events:none;
   border:2px solid var(--k-el);border-radius:6px;
@@ -329,7 +339,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 
 /* ---- Kommentar-Eingabe (Popover bei neuer Markierung) ---- */
 .kommentare-compose{
-  position:fixed;z-index:2147483000;width:min(24rem,92vw);background:var(--k-surface);
+  position:fixed;z-index:var(--k-z-ui);width:min(24rem,92vw);background:var(--k-surface);
   border:1px solid var(--k-line);border-radius:var(--k-radius);padding:.85rem;
   box-shadow:var(--k-shadow-lg);font-family:var(--k-ui);
 }
@@ -346,7 +356,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 
 /* ---- Floating-Button + Menü (toolbarMode: 'floating') ---- */
 .kommentare-fab{
-  position:fixed;right:1.2rem;bottom:1.2rem;z-index:2147483000;
+  position:fixed;right:1.2rem;bottom:1.2rem;z-index:var(--k-z-ui);
   width:3.4rem;height:3.4rem;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   font-family:var(--k-ui);font-size:1.35rem;line-height:1;cursor:pointer;
@@ -358,7 +368,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 .kommentare-fab:focus-visible{outline:2px solid var(--k-focus);outline-offset:3px}
 
 .kommentare-panel{
-  position:fixed;right:1.2rem;bottom:5.1rem;z-index:2147483000;
+  position:fixed;right:1.2rem;bottom:5.1rem;z-index:var(--k-z-ui);
   width:min(20rem,92vw);
   background:var(--k-surface);border:1px solid var(--k-line);
   border-radius:var(--k-radius);box-shadow:var(--k-shadow-lg);padding:.55rem;
@@ -385,7 +395,7 @@ mark.kommentare-mark:focus-visible{outline:2px solid var(--k-focus);outline-offs
 
 /* ---- Hilfe-Panel (modal) ---- */
 .kommentare-help{
-  position:fixed;inset:0;z-index:2147483001;
+  position:fixed;inset:0;z-index:var(--k-z-modal);
   display:flex;align-items:center;justify-content:center;padding:1.2rem;
   background:rgba(20,20,15,.45);
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);

@@ -3,13 +3,13 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.13.0
+ * Version:           1.14.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
  * License:           MIT
  * License URI:       https://opensource.org/licenses/MIT
- * Text Domain:       kommentare
+ * Text Domain:       kommentare-tool
  *
  * ---------------------------------------------------------------------------
  * HINWEIS ZUM ZUGRIFFSSCHUTZ
@@ -27,7 +27,9 @@ if (!defined('ABSPATH')) {
     exit; // Direktaufruf verhindern
 }
 
-define('KOMMENTARE_VERSION', '1.13.0');
+if (!defined('KOMMENTARE_VERSION')) {
+    define('KOMMENTARE_VERSION', '1.14.0');
+}
 
 /* ===========================================================================
  * EINSTELLUNGEN (Einstellungen → Kommentator)
@@ -79,15 +81,34 @@ function kommentare_optionen_pruefen($eingabe) {
     $eingabe  = is_array($eingabe) ? $eingabe : array();
     $sauber   = array();
 
+    // Nur Skalare weiterreichen. Ein verschachteltes Formularfeld
+    // (kommentare_optionen[email][]=x) brächte sonst sanitize_email() dazu,
+    // strlen() auf ein Array zu werfen — fataler Fehler auf options.php.
+    $text = function ($schluessel) use ($eingabe) {
+        if (!isset($eingabe[$schluessel]) || !is_scalar($eingabe[$schluessel])) {
+            return '';
+        }
+        return trim((string) $eingabe[$schluessel]);
+    };
+
     // Sammelstelle: ausschließlich http(s). Alles andere wird verworfen —
     // mit sichtbarer Rückmeldung, statt still zu schlucken.
-    $roh = isset($eingabe['webhook']) ? trim((string) $eingabe['webhook']) : '';
+    $roh = $text('webhook');
     $url = $roh === '' ? '' : esc_url_raw($roh, array('http', 'https'));
+    // esc_url_raw ist Bereiniger, kein Prüfer: protokollrelative Adressen
+    // (//host/exec) überleben, das Werkzeug verwirft sie später still.
+    if ($url !== '') {
+        $teile = wp_parse_url($url);
+        if (empty($teile['scheme']) || empty($teile['host'])
+            || !in_array(strtolower($teile['scheme']), array('http', 'https'), true)) {
+            $url = '';
+        }
+    }
     if ($roh !== '' && $url === '') {
         add_settings_error(
             'kommentare_optionen',
             'kommentare_webhook_ungueltig',
-            __('Die Adresse der Sammelstelle wurde nicht übernommen: Es sind nur http(s)-Adressen erlaubt.', 'kommentare'),
+            __('Die Adresse der Sammelstelle wurde nicht übernommen: Es sind nur http(s)-Adressen erlaubt.', 'kommentare-tool'),
             'error'
         );
     }
@@ -98,21 +119,63 @@ function kommentare_optionen_pruefen($eingabe) {
     $sauber['backend']        = empty($eingabe['backend']) ? 0 : 1;
     $sauber['nur_eingeloggt'] = empty($eingabe['nur_eingeloggt']) ? 0 : 1;
 
-    $mail = isset($eingabe['email']) ? sanitize_email($eingabe['email']) : '';
-    if (!empty($eingabe['email']) && $mail === '') {
+    $mailRoh = $text('email');
+    $mail    = $mailRoh === '' ? '' : sanitize_email($mailRoh);
+    if ($mailRoh !== '' && $mail === '') {
         add_settings_error(
             'kommentare_optionen',
             'kommentare_email_ungueltig',
-            __('Die E-Mail-Adresse wurde nicht übernommen: keine gültige Adresse.', 'kommentare'),
+            __('Die E-Mail-Adresse wurde nicht übernommen: keine gültige Adresse.', 'kommentare-tool'),
             'error'
         );
     }
     $sauber['email'] = $mail;
 
-    $container = isset($eingabe['container']) ? sanitize_text_field($eingabe['container']) : '';
+    // Container-Selektor: grob validieren, damit ein Tippfehler nicht erst im
+    // Browser auffällt (dort risse ein ungültiger Selektor bei
+    // zusammengefasstem JS das ganze Bündel mit).
+    $container = sanitize_text_field($text('container'));
+    if ($container !== '' && !kommentare_selektor_gueltig($container)) {
+        add_settings_error(
+            'kommentare_optionen',
+            'kommentare_container_ungueltig',
+            __('Der kommentierbare Bereich wurde nicht übernommen: kein gültiger CSS-Selektor.', 'kommentare-tool'),
+            'error'
+        );
+        $container = '';
+    }
     $sauber['container'] = $container !== '' ? $container : $standard['container'];
 
     return $sauber;
+}
+
+/**
+ * Grobe Plausibilitätsprüfung eines CSS-Selektors.
+ * Fängt die häufigen Tippfehler ab (offene Klammern, Komma am Ende, leere
+ * Teile) — eine vollständige Selektor-Grammatik ist hier weder nötig noch
+ * sinnvoll, das letzte Wort hat ohnehin der Browser.
+ *
+ * @param string $selektor
+ * @return bool
+ */
+function kommentare_selektor_gueltig($selektor) {
+    if (strlen($selektor) > 200) {
+        return false;
+    }
+    // unausgeglichene Klammern
+    foreach (array(array('[', ']'), array('(', ')')) as $paar) {
+        if (substr_count($selektor, $paar[0]) !== substr_count($selektor, $paar[1])) {
+            return false;
+        }
+    }
+    // leere Teile: führendes/abschließendes Komma oder ",,"
+    foreach (explode(',', $selektor) as $teil) {
+        if (trim($teil) === '') {
+            return false;
+        }
+    }
+    // muss mit einem für Selektoren sinnvollen Zeichen beginnen
+    return (bool) preg_match('/^[a-zA-Z.#*\[:]/', ltrim($selektor));
 }
 
 /** Einstellung registrieren. */
@@ -128,8 +191,8 @@ add_action('admin_init', 'kommentare_einstellungen_registrieren');
 /** Menüpunkt unter „Einstellungen". */
 function kommentare_menue() {
     add_options_page(
-        __('Kommentator', 'kommentare'),
-        __('Kommentator', 'kommentare'),
+        __('Kommentator', 'kommentare-tool'),
+        __('Kommentator', 'kommentare-tool'),
         'manage_options',
         'kommentare-tool',
         'kommentare_einstellungsseite'
@@ -140,11 +203,44 @@ add_action('admin_menu', 'kommentare_menue');
 /** „Einstellungen"-Link in der Plugin-Liste. */
 function kommentare_plugin_links($links) {
     $link = '<a href="' . esc_url(admin_url('options-general.php?page=kommentare-tool')) . '">'
-          . esc_html__('Einstellungen', 'kommentare') . '</a>';
+          . esc_html__('Einstellungen', 'kommentare-tool') . '</a>';
     array_unshift($links, $link);
     return $links;
 }
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'kommentare_plugin_links');
+
+/**
+ * Im Netzwerk-Admin auf die Einstellungen der Einzelsites hinweisen — dort
+ * greift plugin_action_links_ nicht, und konfiguriert wird pro Site.
+ */
+function kommentare_netzwerk_plugin_links($links) {
+    $links[] = '<span>' . esc_html__('Einstellungen je Website', 'kommentare-tool') . '</span>';
+    return $links;
+}
+add_filter('network_admin_plugin_action_links_' . plugin_basename(__FILE__),
+    'kommentare_netzwerk_plugin_links');
+
+/**
+ * Textbaustein für die Datenschutzerklärung (Werkzeuge → Datenschutz).
+ * Nur relevant, wenn eine Sammelstelle eingetragen ist — sonst verlässt
+ * nichts den Browser und es gibt nichts zu erklären.
+ */
+function kommentare_datenschutz_hinweis() {
+    if (!function_exists('wp_add_privacy_policy_content')) {
+        return;
+    }
+    $inhalt = '<p class="privacy-policy-tutorial">'
+        . esc_html__('Vorschlag: nur nötig, wenn unter Einstellungen → Kommentator eine Sammelstelle eingetragen ist.', 'kommentare-tool')
+        . '</p><p><strong>' . esc_html__('Kommentar-Werkzeug', 'kommentare-tool') . '</strong></p>'
+        . '<p>' . esc_html__('Auf dieser Website lassen sich Textstellen markieren und kommentieren. Ist eine zentrale Sammelstelle konfiguriert, werden folgende Angaben an diese Adresse übermittelt: Zeitpunkt, Seiten-Adresse (ohne Abfrageteil) und Seitentitel, angezeigter Name, Art und Ort der Markierung, der Kommentartext, eine Kommentar-Kennung, Browserkennung, Spracheinstellung und Bildschirmgröße.', 'kommentare-tool') . '</p>'
+        . '<p>' . esc_html__('Es wird keine IP-Adresse übermittelt. Zur Gruppierung der Meldungen einer Sitzung dient eine zufällige Kennung, die im Sitzungsspeicher des Browsers liegt und mit dem Schließen des Tabs verfällt. Cookies werden nicht gesetzt.', 'kommentare-tool') . '</p>'
+        . '<p>' . esc_html__('Empfänger der Daten ist der Betreiber der eingetragenen Sammelstelle. Liegt diese bei einem Anbieter außerhalb der EU (etwa Google Sheets), findet insoweit eine Drittlandübermittlung statt. Die IP-Adresse ist dem Empfänger dabei technisch auf Transportebene bekannt.', 'kommentare-tool') . '</p>';
+    wp_add_privacy_policy_content(
+        __('Kommentare (Textstellen-Annotation)', 'kommentare-tool'),
+        wp_kses_post(wpautop($inhalt, false))
+    );
+}
+add_action('admin_init', 'kommentare_datenschutz_hinweis');
 
 /** Die Einstellungsseite. */
 function kommentare_einstellungsseite() {
@@ -154,19 +250,19 @@ function kommentare_einstellungsseite() {
     $o = kommentare_optionen();
     ?>
     <div class="wrap">
-        <h1><?php esc_html_e('Kommentator', 'kommentare'); ?></h1>
+        <h1><?php esc_html_e('Kommentator', 'kommentare-tool'); ?></h1>
         <p class="description" style="max-width:46em">
-            <?php esc_html_e('Markieren, kommentieren, exportieren — im Frontend wie im Backend. Ohne Sammelstelle bleibt alles im Browser; erst mit einer Adresse laufen die Kommentare in einer zentralen Tabelle zusammen.', 'kommentare'); ?>
+            <?php esc_html_e('Markieren, kommentieren, exportieren — im Frontend wie im Backend. Ohne Sammelstelle bleibt alles im Browser; erst mit einer Adresse laufen die Kommentare in einer zentralen Tabelle zusammen.', 'kommentare-tool'); ?>
         </p>
 
         <form method="post" action="options.php">
             <?php settings_fields('kommentare_optionen_gruppe'); ?>
 
-            <h2 class="title"><?php esc_html_e('Zentrale Sammelstelle', 'kommentare'); ?></h2>
+            <h2 class="title"><?php esc_html_e('Zentrale Sammelstelle', 'kommentare-tool'); ?></h2>
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">
-                        <label for="kommentare-webhook"><?php esc_html_e('Adresse', 'kommentare'); ?></label>
+                        <label for="kommentare-webhook"><?php esc_html_e('Adresse', 'kommentare-tool'); ?></label>
                     </th>
                     <td>
                         <input name="kommentare_optionen[webhook]" id="kommentare-webhook" type="url"
@@ -174,81 +270,81 @@ function kommentare_einstellungsseite() {
                                placeholder="https://script.google.com/macros/s/…/exec"
                                value="<?php echo esc_attr($o['webhook']); ?>">
                         <p class="description">
-                            <?php esc_html_e('Leer lassen = aus. Dann verlässt kein Kommentar den Browser und der Knopf „Alle senden" erscheint nicht.', 'kommentare'); ?>
+                            <?php esc_html_e('Leer lassen = aus. Dann verlässt kein Kommentar den Browser und der Knopf „Alle senden" erscheint nicht.', 'kommentare-tool'); ?>
                             <br>
-                            <?php esc_html_e('Für ein Google Sheet: Tabelle anlegen → Erweiterungen → Apps Script → Skript einfügen → Bereitstellen als Web-App („Ausführen als: Ich", „Zugriff: Jeder") → die Adresse auf /exec hier eintragen.', 'kommentare'); ?>
+                            <?php esc_html_e('Für ein Google Sheet: Tabelle anlegen → Erweiterungen → Apps Script → Skript einfügen → Bereitstellen als Web-App („Ausführen als: Ich", „Zugriff: Jeder") → die Adresse auf /exec hier eintragen.', 'kommentare-tool'); ?>
                             <a href="https://github.com/daimpad/kommentator/blob/main/TUTORIAL.md#8-kommentare-in-einem-google-sheet-sammeln"
-                               target="_blank" rel="noopener"><?php esc_html_e('Schritt-für-Schritt-Anleitung mit fertigem Skript', 'kommentare'); ?></a>
+                               target="_blank" rel="noopener"><?php esc_html_e('Schritt-für-Schritt-Anleitung mit fertigem Skript', 'kommentare-tool'); ?></a>
                         </p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Versand', 'kommentare'); ?></th>
+                    <th scope="row"><?php esc_html_e('Versand', 'kommentare-tool'); ?></th>
                     <td>
                         <label>
                             <input name="kommentare_optionen[webhook_auto]" type="checkbox" value="1"
                                    <?php checked($o['webhook_auto'], 1); ?>>
-                            <?php esc_html_e('Jede Änderung automatisch melden', 'kommentare'); ?>
+                            <?php esc_html_e('Jede Änderung automatisch melden', 'kommentare-tool'); ?>
                         </label>
                         <p class="description">
-                            <?php esc_html_e('Aus = nur der Knopf „Alle senden" schickt. Gemeldet werden Zeitpunkt, Seiten-URL und -Titel, Autor:in, Art, markierte Stelle, Kommentar, Browser, Sprache und Bildschirmgröße — keine IP-Adresse, nur eine anonyme Sitzungskennung.', 'kommentare'); ?>
+                            <?php esc_html_e('Aus = nur der Knopf „Alle senden" schickt. Gemeldet werden Zeitpunkt, Seiten-URL und -Titel, Autor:in, Art, markierte Stelle, Kommentar, Browser, Sprache und Bildschirmgröße — keine IP-Adresse, nur eine anonyme Sitzungskennung.', 'kommentare-tool'); ?>
                         </p>
                     </td>
                 </tr>
             </table>
 
-            <h2 class="title"><?php esc_html_e('Anzeige', 'kommentare'); ?></h2>
+            <h2 class="title"><?php esc_html_e('Anzeige', 'kommentare-tool'); ?></h2>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><?php esc_html_e('Laden', 'kommentare'); ?></th>
+                    <th scope="row"><?php esc_html_e('Laden', 'kommentare-tool'); ?></th>
                     <td>
                         <label>
                             <input name="kommentare_optionen[frontend]" type="checkbox" value="1"
                                    <?php checked($o['frontend'], 1); ?>>
-                            <?php esc_html_e('Im Frontend (öffentliche Seiten)', 'kommentare'); ?>
+                            <?php esc_html_e('Im Frontend (öffentliche Seiten)', 'kommentare-tool'); ?>
                         </label><br>
                         <label>
                             <input name="kommentare_optionen[backend]" type="checkbox" value="1"
                                    <?php checked($o['backend'], 1); ?>>
-                            <?php esc_html_e('Im Backend (wp-admin)', 'kommentare'); ?>
+                            <?php esc_html_e('Im Backend (wp-admin)', 'kommentare-tool'); ?>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e('Wer darf kommentieren', 'kommentare'); ?></th>
+                    <th scope="row"><?php esc_html_e('Wer darf kommentieren', 'kommentare-tool'); ?></th>
                     <td>
                         <label>
                             <input name="kommentare_optionen[nur_eingeloggt]" type="checkbox" value="1"
                                    <?php checked($o['nur_eingeloggt'], 1); ?>>
-                            <?php esc_html_e('Im Frontend nur angemeldete Nutzer:innen', 'kommentare'); ?>
+                            <?php esc_html_e('Im Frontend nur angemeldete Nutzer:innen', 'kommentare-tool'); ?>
                         </label>
                         <p class="description">
-                            <?php esc_html_e('Standard: an. Ohne Haken sehen und nutzen alle Besucher:innen das Werkzeug — auf einer öffentlichen Seite mit Sammelstelle heißt das: jede:r kann in deine Tabelle schreiben, denn die Adresse steht im Seitenquelltext und lässt sich nicht geheim halten. Den Haken nur entfernen, wenn Rückmeldungen von nicht angemeldeten Personen ausdrücklich erwünscht sind.', 'kommentare'); ?>
+                            <?php esc_html_e('Standard: an. Ohne Haken sehen und nutzen alle Besucher:innen das Werkzeug — auf einer öffentlichen Seite mit Sammelstelle heißt das: jede:r kann in deine Tabelle schreiben, denn die Adresse steht im Seitenquelltext und lässt sich nicht geheim halten. Den Haken nur entfernen, wenn Rückmeldungen von nicht angemeldeten Personen ausdrücklich erwünscht sind.', 'kommentare-tool'); ?>
                         </p>
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">
-                        <label for="kommentare-container"><?php esc_html_e('Kommentierbarer Bereich', 'kommentare'); ?></label>
+                        <label for="kommentare-container"><?php esc_html_e('Kommentierbarer Bereich', 'kommentare-tool'); ?></label>
                     </th>
                     <td>
                         <input name="kommentare_optionen[container]" id="kommentare-container" type="text"
                                class="regular-text code" spellcheck="false"
                                value="<?php echo esc_attr($o['container']); ?>">
                         <p class="description">
-                            <?php esc_html_e('CSS-Selektor. Standard „body" = ganze Seite inklusive Kopf- und Fußbereich. Nur den Inhalt: .entry-content oder .wp-block-post-content.', 'kommentare'); ?>
+                            <?php esc_html_e('CSS-Selektor. Standard „body" = ganze Seite inklusive Kopf- und Fußbereich. Nur den Inhalt: .entry-content oder .wp-block-post-content.', 'kommentare-tool'); ?>
                         </p>
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">
-                        <label for="kommentare-email"><?php esc_html_e('E-Mail-Empfänger', 'kommentare'); ?></label>
+                        <label for="kommentare-email"><?php esc_html_e('E-Mail-Empfänger', 'kommentare-tool'); ?></label>
                     </th>
                     <td>
                         <input name="kommentare_optionen[email]" id="kommentare-email" type="email"
                                class="regular-text" value="<?php echo esc_attr($o['email']); ?>">
                         <p class="description">
-                            <?php esc_html_e('Für „Per E-Mail senden". Leer = Knopf aus.', 'kommentare'); ?>
+                            <?php esc_html_e('Für „Per E-Mail senden". Leer = Knopf aus.', 'kommentare-tool'); ?>
                         </p>
                     </td>
                 </tr>
@@ -258,9 +354,9 @@ function kommentare_einstellungsseite() {
         </form>
 
         <p class="description">
-            <?php esc_html_e('Feinere Einstellungen (Element-/Punkt-Kommentare, Theme-Umschalter, eigene Texte, Nur-Lesen) laufen weiter über Filter im Theme. Ein Filter sticht dabei immer den hier gespeicherten Wert.', 'kommentare'); ?>
+            <?php esc_html_e('Feinere Einstellungen (Element-/Punkt-Kommentare, Theme-Umschalter, eigene Texte, Nur-Lesen) laufen weiter über Filter im Theme. Ein Filter sticht dabei immer den hier gespeicherten Wert.', 'kommentare-tool'); ?>
             <a href="https://github.com/daimpad/kommentator/blob/main/TECHNISCHE_DOKUMENTATION.md#wordpress-plugin"
-               target="_blank" rel="noopener"><?php esc_html_e('Übersicht aller Filter', 'kommentare'); ?></a>
+               target="_blank" rel="noopener"><?php esc_html_e('Übersicht aller Filter', 'kommentare-tool'); ?></a>
         </p>
     </div>
     <?php
@@ -280,7 +376,7 @@ function kommentare_einstellungsseite() {
  * @return string
  */
 function kommentare_container_selector() {
-    return apply_filters('kommentare_container_selector', kommentare_option('container'));
+    return (string) apply_filters('kommentare_container_selector', kommentare_option('container'));
 }
 
 /**
@@ -333,8 +429,17 @@ function kommentare_should_load_admin($hook_suffix = '') {
  */
 function kommentare_build_config($is_admin = false) {
     // Autor:in aus dem eingeloggten WordPress-Benutzer (sonst „Gast").
-    $autor = is_user_logged_in() ? wp_get_current_user()->display_name : 'Gast';
-    $autor = apply_filters('kommentare_autor', $autor);
+    // display_name kommt HTML-maskiert aus der Datenbank („Müller &amp; Söhne")
+    // — für ein JS-Textfeld muss das zurückgedreht werden.
+    $autor = is_user_logged_in()
+        ? html_entity_decode((string) wp_get_current_user()->display_name, ENT_QUOTES, 'UTF-8')
+        : 'Gast';
+    // (string) wie bei allen anderen Werten: ein Filter, der versehentlich ein
+    // WP_User-Objekt zurückgibt, schriebe sonst dessen Felder in den Quelltext.
+    $autor = (string) apply_filters('kommentare_autor', $autor);
+    if ($autor === '') {
+        $autor = 'Gast';
+    }
 
     // Im Backend nur die eigene Werkzeug-UI ausnehmen (die Admin-Oberfläche
     // selbst soll kommentierbar sein); im Frontend zusätzlich die Admin-Bar.
@@ -385,14 +490,14 @@ function kommentare_enqueue($is_admin = false) {
     $base = plugin_dir_url(__FILE__) . 'assets/';
 
     wp_enqueue_style(
-        'kommentare',
+        'kommentare-tool',
         $base . 'kommentare.css',
         array(),
         KOMMENTARE_VERSION
     );
 
     wp_enqueue_script(
-        'kommentare',
+        'kommentare-tool',
         $base . 'kommentare.js',
         array(),
         KOMMENTARE_VERSION,
@@ -401,27 +506,82 @@ function kommentare_enqueue($is_admin = false) {
 
     $config = kommentare_build_config($is_admin);
 
-    // Der Block-Editor baut seine Oberfläche erst nach DOMContentLoaded auf;
-    // deshalb zusätzlich auf 'load' warten und leicht verzögert starten.
-    $init = '(function(){function s(){if(!window.Kommentare||window.kommentareInstanz)return;'
-          . 'window.kommentareInstanz=window.Kommentare.init(' . wp_json_encode($config) . ');}'
+    // Robuster Start:
+    // - try/catch, damit ein Fehler nicht das ganze (womöglich von einem
+    //   Optimierungs-Plugin zusammengefasste) Skriptbündel mitreißt.
+    // - mehrere Versuche: wird kommentare.js mit defer/async oder verzögert
+    //   geladen, ist window.Kommentare beim ersten Anlauf noch nicht da.
+    //   Ohne Wiederholung fehlte das Werkzeug spurlos.
+    // - Der Block-Editor baut seine Oberfläche erst nach DOMContentLoaded auf.
+    $init = '(function(){var n=0;function s(){'
+          . 'if(window.kommentareInstanz)return;'
+          . 'if(!window.Kommentare){if(++n<40){setTimeout(s,150);}return;}'
+          . 'try{window.kommentareInstanz=window.Kommentare.init(' . wp_json_encode($config) . ');}'
+          . 'catch(e){if(window.console&&console.warn){console.warn("Kommentator:",e&&e.message);}}}'
           . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){setTimeout(s,0);});}'
-          . 'else{setTimeout(s,0);}})();';
+          . 'else{setTimeout(s,0);}'
+          . 'window.addEventListener("load",function(){setTimeout(s,0);});})();';
 
-    wp_add_inline_script('kommentare', $init);
+    wp_add_inline_script('kommentare-tool', $init);
 }
+
+/**
+ * Seiten mit personalisierter Konfiguration nicht in einen Voll-Seiten-Cache
+ * lassen. Autorname und Sammelstellen-Adresse werden serverseitig ins HTML
+ * geschrieben; ein Cache für angemeldete Nutzer:innen würde diese Seite sonst
+ * an Fremde ausliefern — und damit die Einstellung „nur angemeldet"
+ * aushebeln. Muss vor der Ausgabe laufen, deshalb template_redirect.
+ */
+function kommentare_cache_ausschluss() {
+    if (is_admin() || !is_user_logged_in() || !kommentare_should_load()) {
+        return;
+    }
+    if (!defined('DONOTCACHEPAGE')) {
+        define('DONOTCACHEPAGE', true);
+    }
+    // von einigen Cache-Plugins zusätzlich ausgewertet
+    if (!defined('DONOTCACHEOBJECT')) {
+        define('DONOTCACHEOBJECT', true);
+    }
+}
+add_action('template_redirect', 'kommentare_cache_ausschluss');
 
 /** Frontend. */
 function kommentare_enqueue_assets() {
     if (!kommentare_should_load()) {
         return;
     }
+    // In der Customizer-Vorschau läuft bereits eine Instanz im Rahmen
+    // darum — zwei überlagerte Werkzeuge helfen niemandem.
+    if (function_exists('is_customize_preview') && is_customize_preview()) {
+        return;
+    }
     kommentare_enqueue(false);
 }
 add_action('wp_enqueue_scripts', 'kommentare_enqueue_assets');
 
+/**
+ * Admin-Seiten, auf denen das Werkzeug mehr stört als nützt: Oberflächen, die
+ * ihr DOM selbst verwalten (React/Customizer), und die eigene Einstellungsseite.
+ *
+ * @return string[]
+ */
+function kommentare_admin_ausnahmen() {
+    return (array) apply_filters('kommentare_admin_ausnahmen', array(
+        'customize.php',              // Customizer
+        'site-editor.php',            // Full-Site-Editing
+        'widgets.php',                // Block-Widgets
+        'theme-editor.php',           // Datei-Editor
+        'plugin-editor.php',
+        'settings_page_kommentare-tool', // eigene Einstellungsseite
+    ));
+}
+
 /** Backend (wp-admin), inklusive Block-Editor. */
 function kommentare_enqueue_admin_assets($hook_suffix = '') {
+    if (in_array($hook_suffix, kommentare_admin_ausnahmen(), true)) {
+        return;
+    }
     if (!kommentare_should_load_admin($hook_suffix)) {
         return;
     }

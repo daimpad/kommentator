@@ -47,13 +47,22 @@ function settings_fields($g) {}
 function add_settings_error($s, $c, $m, $t = 'error') { $GLOBALS['errors'][] = $c; }
 function sanitize_email($m) { $m = trim((string) $m); return filter_var($m, FILTER_VALIDATE_EMAIL) ? $m : ''; }
 function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
+/* Naeher am Core: esc_url_raw ist ein BEREINIGER, kein Validator.
+   - schemalose Adressen bekommen http:// vorangestellt
+   - protokollrelative (//host/x) bleiben unveraendert stehen
+   - nur ein VORHANDENES, nicht erlaubtes Schema fuehrt zu ''
+   Genau deshalb prueft das Plugin zusaetzlich mit wp_parse_url(). */
 function esc_url_raw($u, $schemes = null) {
-    $u = trim((string) $u);
-    $p = parse_url($u);
-    if (!$p || empty($p['scheme']) || empty($p['host'])) return '';
-    if ($schemes && !in_array(strtolower($p['scheme']), $schemes, true)) return '';
-    return $u;
+    $u = str_replace(' ', '%20', ltrim((string) $u));
+    if ($u === '') return '';
+    if (preg_match('#^([a-z][a-z0-9+.-]*):#i', $u, $m)) {
+        if ($schemes && !in_array(strtolower($m[1]), $schemes, true)) return '';
+        return $u;
+    }
+    if (substr($u, 0, 2) === '//' || $u[0] === '/' || $u[0] === '#' || $u[0] === '?') return $u;
+    return 'http://' . $u;
 }
+function wp_parse_url($u, $c = -1) { $p = parse_url($u); return $p === false ? array() : $p; }
 function wp_json_encode($v) { return json_encode($v); }
 function wp_enqueue_style() {}
 function wp_enqueue_script() {}
@@ -91,6 +100,20 @@ pruef('Prüfung: E-Mail übernommen', $s['email'] === 'kontakt@nozilla.de');
 pruef('Prüfung: Container übernommen', $s['container'] === '.entry-content');
 pruef('Prüfung: nicht angehaktes Backend wird 0', $s['backend'] === 0);
 
+// Adressen, die esc_url_raw allein NICHT abweist -> wp_parse_url-Nachpruefung
+foreach (array('//fremd.test/exec', '/nur/pfad', '#anker', 'ohne-schema.test/exec') as $u) {
+    $r = kommentare_optionen_pruefen(array('webhook' => $u));
+    if ($u === 'ohne-schema.test/exec') {
+        pruef("Adresse '$u' wird zu http:// ergaenzt", $r['webhook'] === 'http://ohne-schema.test/exec');
+    } else {
+        pruef("Adresse '$u' wird abgelehnt", $r['webhook'] === '');
+    }
+}
+foreach (array('ftp://x/y', 'data:text/html,x') as $u) {
+    $r = kommentare_optionen_pruefen(array('webhook' => $u));
+    pruef("Fremdes Schema '$u' wird abgelehnt", $r['webhook'] === '');
+}
+
 $GLOBALS['errors'] = array();
 $b = kommentare_optionen_pruefen(array('webhook' => 'javascript:alert(1)', 'email' => 'kein-mail'));
 pruef('Prüfung: javascript: wird verworfen', $b['webhook'] === '');
@@ -110,6 +133,25 @@ pruef('Option: email wirkt', $c['email'] === 'a@b.de');
 pruef('Option: container wirkt', $c['container'] === '.inhalt');
 pruef('Option: Frontend aus wirkt', kommentare_should_load() === false);
 pruef('Option: Backend an wirkt', kommentare_should_load_admin('index.php') === true);
+
+// 3a2) Verschachtelte Formularfelder duerfen nicht fatal werden
+$GLOBALS['errors'] = array();
+$arr = kommentare_optionen_pruefen(array(
+    'webhook' => array('x'), 'email' => array('y'), 'container' => array('z'),
+));
+pruef('Array statt String: webhook leer', $arr['webhook'] === '');
+pruef('Array statt String: email leer', $arr['email'] === '');
+pruef('Array statt String: container faellt auf body zurueck', $arr['container'] === 'body');
+
+// 3a3) Ungueltige Selektoren werden abgelehnt und gemeldet
+foreach (array('.a,', ',', '.a[b', '.a)', str_repeat('x', 250)) as $sel) {
+    $r = kommentare_optionen_pruefen(array('container' => $sel));
+    pruef("Selektor '" . substr($sel, 0, 12) . "' wird abgelehnt", $r['container'] === 'body');
+}
+foreach (array('body', '.entry-content', '#main > .inhalt', '.a, .b', '[data-x]') as $sel) {
+    $r = kommentare_optionen_pruefen(array('container' => $sel));
+    pruef("Selektor '$sel' wird uebernommen", $r['container'] === $sel);
+}
 
 // 3b) „Nur angemeldete Nutzer:innen" im Frontend
 update_option('kommentare_optionen', array('frontend' => 1, 'nur_eingeloggt' => 1));
