@@ -584,6 +584,54 @@ check("Modal: gewähltes Theme startet das Werkzeug",
 await page.emulateMedia({ colorScheme: "light" });
 await load();
 
+// --- Demo-Palette: keine Fremdfarbe aus dem Werkzeug im Dunkelmodus --------
+// Die Dunkel-Regeln von kommentare.css sind spezifischer als ein schlichtes
+// `.kommentare-scope`. Wird in demo.css eine Variable vergessen, fällt sie im
+// Dunkeln auf die Werkzeugfarbe zurück — zuletzt das Indigo (#8b85ff) an
+// Eingabefeld, Speichern-Knopf und Titelpunkt. Das hier findet so etwas.
+await page.emulateMedia({ colorScheme: "dark" });
+await load();
+await page.evaluate(() => {
+  const c = document.getElementById("content");
+  const w = document.createTreeWalker(c, NodeFilter.SHOW_TEXT);
+  let n; while ((n = w.nextNode())) if (n.nodeValue.trim().length > 40) break;
+  const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, 30);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  c.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+});
+await page.evaluate(() => { const f = document.querySelector(".kommentare-fab"); if (f) f.click(); });
+const fremdfarben = await page.evaluate(() => {
+  const props = ["color", "backgroundColor", "borderTopColor", "borderRightColor",
+                 "borderBottomColor", "borderLeftColor", "outlineColor", "caretColor",
+                 "accentColor", "fill", "stroke", "textDecorationColor"];
+  // Blau-violett: Blau deutlich über Grün, Rot über Grün. Das CI kennt nur
+  // Papier, Tinte und Signal-Grün — nichts davon erfüllt das.
+  const violett = (v) => {
+    const m = (v || "").match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/);
+    if (!m) return false;
+    const r = +m[1], g = +m[2], b = +m[3], a = m[4] === undefined ? 1 : +m[4];
+    return a >= 0.05 && b > g + 25 && r > g + 5 && b > 60;
+  };
+  const out = [];
+  const scope = document.querySelector(".kommentare-scope");
+  const alle = [scope].concat([...document.querySelectorAll(
+    ".kommentare-scope *, .kommentare-panel, .kommentare-panel *, .kommentare-fab, .kommentare-margin *")]);
+  for (const el of alle) {
+    if (!el) continue;
+    for (const ps of [null, "::before", "::after", "::placeholder", "::selection"]) {
+      const cs = getComputedStyle(el, ps);
+      for (const pr of props) {
+        if (violett(cs[pr])) out.push((el.className.baseVal ?? el.className ?? el.tagName) + (ps || "") + " " + pr + "=" + cs[pr]);
+      }
+    }
+  }
+  return out;
+});
+if (fremdfarben.length) console.log("  gefunden:", fremdfarben.slice(0, 6));
+check("Demo dunkel: keine Fremdfarbe des Werkzeugs (Indigo)", fremdfarben.length === 0);
+await page.emulateMedia({ colorScheme: "light" });
+await load();
+
 // --- ARIA: Panel ist region (kein menu), FAB verweist per aria-controls ---
 const aria = await page.evaluate(() => {
   const panel = document.querySelector(".kommentare-panel");
