@@ -26,7 +26,8 @@ VERSION="$(sed -n 's/^ \* Version:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' \
 [ -n "$VERSION" ] || fehler "Version im Plugin-Header nicht gefunden."
 
 # --- 1) Version konsistent? (Header, KOMMENTARE_VERSION, readme.txt) --------
-CONST_VERSION="$(sed -n "s/^define('KOMMENTARE_VERSION', *'\([0-9][0-9.]*\)').*/\1/p" \
+# führende Leerzeichen erlaubt: define() steht in einem defined()-Wächter
+CONST_VERSION="$(sed -n "s/^[[:space:]]*define('KOMMENTARE_VERSION', *'\([0-9][0-9.]*\)').*/\1/p" \
   "$PLUGIN_DIR/kommentare-tool.php" | head -1)"
 README_VERSION="$(sed -n 's/^Stable tag:[[:space:]]*\([0-9][0-9.]*\).*/\1/p' \
   "$PLUGIN_DIR/readme.txt" | head -1)"
@@ -57,7 +58,8 @@ ZIP="$DIST/kommentare-tool-$VERSION.zip"
 rm -rf "$DIST/kommentare-tool" "$ZIP"
 mkdir -p "$DIST/kommentare-tool"
 
-cp "$PLUGIN_DIR/kommentare-tool.php" "$PLUGIN_DIR/readme.txt" "$DIST/kommentare-tool/"
+cp "$PLUGIN_DIR/kommentare-tool.php" "$PLUGIN_DIR/readme.txt" \
+   "$PLUGIN_DIR/uninstall.php" "$DIST/kommentare-tool/"
 mkdir -p "$DIST/kommentare-tool/assets"
 cp "$PLUGIN_DIR/assets/kommentare.js" "$PLUGIN_DIR/assets/kommentare.css" \
    "$DIST/kommentare-tool/assets/"

@@ -94,7 +94,9 @@
     punktLabel:         "Punkt",
     sendenBtn:          "Alle senden",
     sendenTitel:        "Alle eigenen Kommentare an die zentrale Tabelle senden",
-    sendenOk:           "Gesendet",
+    // „Abgeschickt" statt „Gesendet": eine Empfangsbestätigung gibt es
+    // technisch nicht (siehe _webhookPost), das soll der Text nicht behaupten.
+    sendenOk:           "Abgeschickt",
     sendenLeer:         "Nichts zu senden",
     sendenFehler:       "Senden nicht möglich",
     artText:            "Text",
@@ -122,9 +124,13 @@
   /* -------------------------------------------------------------------- */
   /* Hilfsfunktionen                                                       */
   /* -------------------------------------------------------------------- */
+  // Ein ungültiger Selektor darf nicht werfen: bei zusammengefasstem JS
+  // (Optimierungs-Plugins) risse ein Throw das ganze Bündel mit.
   function resolve(elOrSel) {
     if (!elOrSel) return null;
-    return typeof elOrSel === "string" ? document.querySelector(elOrSel) : elOrSel;
+    if (typeof elOrSel !== "string") return elOrSel.nodeType === 1 ? elOrSel : null;
+    try { return document.querySelector(elOrSel); }
+    catch (_) { return null; }
   }
   function el(tag, cls) {
     var e = document.createElement(tag);
@@ -149,6 +155,17 @@
      sessionStorage, damit sie beim Blättern innerhalb eines Tabs stabil bleibt
      und mit dem Schließen des Tabs verschwindet — kein localStorage. Ist der
      Speicher gesperrt, gilt sie nur für diesen Seitenaufruf. */
+  /* Seiten-URL für die Meldung: ohne Abfrageteil und ohne Fragment. In
+     wp-admin stehen dort sonst _wpnonce, action, post-IDs und Schlüssel —
+     die haben in einer fremden Tabelle und deren Protokollen nichts zu
+     suchen. Herkunft und Pfad genügen, um die Seite zu erkennen. */
+  function sichereUrl() {
+    if (!global.location) return "";
+    var l = global.location;
+    if (l.origin && l.pathname) return l.origin + l.pathname;
+    return String(l.href || "").split("?")[0].split("#")[0];
+  }
+
   var sitzungsFallback = null;
   function sitzungsId() {
     var neu = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -237,7 +254,9 @@
       this.webhook = String(options.webhook);
     }
     this.webhookAuto = options.webhookAuto !== false;
-    this._sitzung = sitzungsId();   // anonyme Sitzungskennung (keine IP)
+    // Anonyme Sitzungskennung (keine IP) — nur anlegen, wenn tatsächlich
+    // gemeldet wird. Ohne Sammelstelle wird nichts gespeichert.
+    this._sitzung = this.webhook ? sitzungsId() : "";
     this._sendTimer = null;
 
     this._mode = null;              // null | "element" | "point"
@@ -273,6 +292,14 @@
     _buildLayout: function () {
       var T = this.texte;
       var c = this.container;
+      // Das in-flow-Layout umschließt den Container mit einem Wrapper. Bei
+      // <body> (oder <html>) hieße das, <body> aus dem Dokument auszuhängen —
+      // document.body wäre danach null und JEDES weitere Skript der Seite
+      // stürbe mit. Für solche Container gibt es nur schwebende Notizen.
+      if (this.notesMode !== "floating" && !this._marginHost &&
+          (c === document.body || c === document.documentElement)) {
+        this.notesMode = "floating";
+      }
       var floatingNotes = this.notesMode === "floating" && !this._toolbarHost && !this._marginHost;
       // Scope (CSS-Variablen) immer; die Dokument-Typo nur im in-flow Layout,
       // damit ein großer Container (z. B. <body>) nicht komplett umgestylt wird.
@@ -840,7 +867,10 @@
       if (elx && this.container.contains(elx)) return elx;
       // Fallback: unter allen gleichartigen Elementen per Fingerprint suchen
       if (a.tag) {
-        var cands = this.container.querySelectorAll(a.tag), best = null, i;
+        // a.tag stammt aus importierter Fremd-JSON -> Selektor absichern
+        var cands = [];
+        try { cands = this.container.querySelectorAll(a.tag); } catch (_) { return null; }
+        var best = null, i;
         for (i = 0; i < cands.length; i++) {
           if (this._fingerprint(cands[i]) === a.fingerprint) { best = cands[i]; break; }
         }
@@ -1124,19 +1154,33 @@
     },
 
     /* ---- Bereich [start,end) mit <mark> umschließen (knotenübergreifend) */
-    _wrapRange: function (start, end, id) {
+    // Textknoten mit ihren kumulierten Start-/Endpositionen im Volltext.
+    _knotenMitOffsets: function () {
+      var nodes = this._textNodes(this.container), out = [], pos = 0, i;
+      for (i = 0; i < nodes.length; i++) {
+        var len = nodes[i].nodeValue.length;
+        out.push({ node: nodes[i], start: pos, end: pos + len });
+        pos += len;
+      }
+      return out;
+    },
+    _wrapRange: function (start, end, id, vorab) {
       var anno = this.annos.get(id);
       var label = anno
         ? (this.texte.markierungAria + " " + this.texte.von + " " +
            (anno.author || this.texte.platzhalterName) + ": „" + anno.quote + "“")
         : this.texte.markierungAria;
 
-      var hits = [], pos = 0, nodes = this._textNodes(this.container);
-      for (var i = 0; i < nodes.length; i++) {
-        var t = nodes[i], s = pos, e = pos + t.nodeValue.length;
-        pos = e;
-        var from = Math.max(start, s), to = Math.min(end, e);
-        if (from < to) hits.push({ node: t, from: from - s, to: to - s });
+      // Optional vorberechnete Knotenliste (siehe _relayout) — spart bei
+      // vielen Annotationen den wiederholten Baumdurchlauf.
+      var liste = vorab || this._knotenMitOffsets();
+      var hits = [], i;
+      for (i = 0; i < liste.length; i++) {
+        var k = liste[i];
+        if (k.start >= end) break;        // alles Weitere liegt dahinter
+        if (k.end <= start) continue;     // liegt noch davor
+        hits.push({ node: k.node, from: Math.max(start, k.start) - k.start,
+                    to: Math.min(end, k.end) - k.start });
       }
       // rückwärts, damit Split-Operationen frühere Knoten nicht verschieben
       for (var j = hits.length - 1; j >= 0; j--) {
@@ -1168,12 +1212,15 @@
     },
     _unwrapMarks: function () {
       var marks = this.container.querySelectorAll("mark.kommentare-mark");
+      var eltern = [];
       marks.forEach(function (m) {
         var p = m.parentNode;
         while (m.firstChild) p.insertBefore(m.firstChild, m);
         p.removeChild(m);
+        if (eltern.indexOf(p) === -1) eltern.push(p);
       });
-      this.container.normalize();
+      // gezielt statt dokumentweit (siehe _removeAnno)
+      eltern.forEach(function (p) { p.normalize(); });
     },
 
     // Beste Verankerung finden: exakte Position, sonst per Wortlaut mit
@@ -1203,15 +1250,40 @@
       return best;
     },
 
-    _relayout: function () { // alle Markierungen neu aufbauen (nach Import)
+    // Alle Markierungen neu aufbauen (nach Import).
+    //
+    // Der Baumdurchlauf ist der teure Teil: einmal pro Annotation gerechnet
+    // wird das Einlesen quadratisch (gemessen: 1500 Absätze × 100 Kommentare
+    // ≈ 1 s Blockade). Deshalb EINMAL vorberechnen und die Liste durchreichen.
+    //
+    // Das ist nur zulässig, solange sich die Annotationen nicht überlappen:
+    // Umschließen spaltet Textknoten, was Einträge NACH der Fundstelle
+    // ungültig macht. Wir arbeiten deshalb von hinten nach vorne — bereits
+    // verarbeitete (spätere) Knoten fassen wir nie wieder an. Bei echten
+    // Überlappungen (verschachtelte <mark>) fällt die Berechnung pro
+    // Annotation zurück, weil dort dieselbe Stelle mehrfach angefasst wird.
+    _relayout: function () {
       this._unwrapMarks();
       var full = this._plainText();
+      var anker = [];
       this.annos.forEach(function (a) {
         var anchor = this._findAnchor(full, a);
         if (!anchor) return;
         a.pos = { start: anchor.start, end: anchor.end };
-        this._wrapRange(anchor.start, anchor.end, a.id);
+        anker.push({ id: a.id, start: anchor.start, end: anchor.end });
       }, this);
+      if (!anker.length) return;
+
+      // absteigend nach Startposition: von hinten nach vorne umschließen
+      anker.sort(function (x, y) { return y.start - x.start; });
+      var ueberlappt = false, i;
+      for (i = 1; i < anker.length; i++) {
+        if (anker[i].end > anker[i - 1].start) { ueberlappt = true; break; }
+      }
+      var vorab = ueberlappt ? null : this._knotenMitOffsets();
+      for (i = 0; i < anker.length; i++) {
+        this._wrapRange(anker[i].start, anker[i].end, anker[i].id, vorab);
+      }
     },
 
     /* ---- Auswahl -> Kommentar --------------------------------------- */
@@ -1477,13 +1549,17 @@
       this.annos.delete(id);
       // jedes Teilstück auflösen — sonst bleiben sichtbare Markierungen ohne
       // zugehörige Notiz stehen
-      var teile = this._marksOf(id);
+      // normalize() NUR auf den betroffenen Elternknoten — dokumentweit würde
+      // es fremd verwaltetes DOM (Block-Editor/React) unter den Füßen
+      // wegziehen, wenn der Container die ganze Seite umfasst.
+      var teile = this._marksOf(id), eltern = [];
       teile.forEach(function (m) {
         var p = m.parentNode;
         while (m.firstChild) p.insertBefore(m.firstChild, m);
         p.removeChild(m);
+        if (eltern.indexOf(p) === -1) eltern.push(p);
       });
-      if (teile.length) this.container.normalize();
+      eltern.forEach(function (p) { p.normalize(); });
       this._render();
       if (this.onDelete) this.onDelete(id);
       this._webhookAuto(weg, this.texte.aktionGeloescht);
@@ -1559,16 +1635,20 @@
       }
       var nav = global.navigator || {};
       var scr = global.screen || {};
+      // Beim Löschen NICHT den vollen Wortlaut ein zweites Mal melden — die
+      // Gegenstelle kennt ihn über die Kommentar-ID und soll die Zeile
+      // räumen, nicht eine Kopie anlegen.
+      var geloescht = aktion === T.aktionGeloescht;
       return {
         zeitpunkt:    new Date().toISOString(),
         erstellt:     a.created || "",
-        seitenUrl:    global.location ? global.location.href : "",
+        seitenUrl:    sichereUrl(),
         seitenTitel:  (global.document && document.title) || "",
         autor:        a.author || "",
         art:          art,
         aktion:       aktion || T.aktionNeu,
-        stelle:       stelle,
-        kommentar:    a.body || "",
+        stelle:       geloescht ? "" : stelle,
+        kommentar:    geloescht ? "" : (a.body || ""),
         kommentarId:  a.id,
         sitzung:      this._sitzung,
         userAgent:    nav.userAgent || "",
@@ -1736,11 +1816,15 @@
 
     import: function (jsonOrArray) {
       var data = jsonOrArray;
+      // Kaputtes JSON wirft weiterhin (die Aufrufer melden es der Nutzerin),
+      // aber eine gültige Datei mit unerwartetem Inhalt darf nicht werfen.
       if (typeof data === "string") data = JSON.parse(data);
-      var arr = Array.isArray(data) ? data : (data && data.annotations) || [];
+      if (!data || typeof data !== "object") return 0;
+      var arr = Array.isArray(data) ? data : (data.annotations || []);
+      if (!Array.isArray(arr)) return 0;
       var added = 0;
       for (var i = 0; i < arr.length; i++) {
-        var a = fromW3C(arr[i]);
+        var a = arr[i] && typeof arr[i] === "object" ? fromW3C(arr[i]) : null;
         if (a && a.id && !this.annos.has(a.id)) {
           this.annos.set(a.id, a);
           added++;

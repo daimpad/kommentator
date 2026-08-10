@@ -308,6 +308,19 @@ Deshalb:
 Meldet der Browser doch einen Fehler (Netz weg, Adresse tot), landet er als
 Hinweis am Knopf „Alle senden“.
 
+### Was gemeldet wird — und was nicht
+
+Die Seiten-Adresse geht **ohne Abfrageteil und ohne Fragment** raus
+(`origin + pathname`). In wp-admin stünden dort sonst `_wpnonce`, `action` und
+Beitrags-IDs — die haben in einer fremden Tabelle nichts verloren.
+
+Beim **Löschen** werden `kommentar` und `stelle` leer übertragen: die
+Gegenstelle kennt die Zeile über die `kommentarId` und soll sie räumen, nicht
+eine Kopie des Wortlauts anlegen.
+
+Die **Sitzungskennung entsteht nur**, wenn eine Sammelstelle konfiguriert ist —
+ohne `webhook` wird nichts in `sessionStorage` geschrieben.
+
 ### Warum „abschicken und gut“
 
 Der Versand nutzt `navigator.sendBeacon()`, ersatzweise `fetch(…, {mode:
@@ -327,6 +340,12 @@ Der Versand nutzt `navigator.sendBeacon()`, ersatzweise `fetch(…, {mode:
 ---
 
 ## Layout: in-flow vs. schwebend (ganze Seite kommentieren)
+
+> **Zwangsregel:** Ist der Container `<body>` oder `<html>`, schaltet das
+> Werkzeug `notes` selbsttätig auf `'floating'`. Das in-flow-Layout umschließt
+> den Container mit einem Wrapper — bei `<body>` hieße das, ihn aus dem Dokument
+> auszuhängen: `document.body` wäre danach `null` und **jedes** weitere Skript
+> der Seite stürbe mit.
 
 Standard (`notes: 'inline'`): das Werkzeug **umschließt den Container** und baut
 eine zweispaltige Ansicht (Dokument + Randspalte). Das setzt einen abgegrenzten
@@ -436,6 +455,7 @@ bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 | `kommentare_exclude` | string, `$is_admin` | Frontend `#wpadminbar`, Backend leer |
 | `kommentare_webhook` | string | Einstellung `webhook` (leer = aus) |
 | `kommentare_webhook_auto` | bool | Einstellung `webhook_auto` (`true`) |
+| `kommentare_admin_ausnahmen` | array | Admin-Seiten ohne Werkzeug (Customizer, Site-Editor, Widgets, Datei-Editoren, eigene Einstellungsseite) |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der

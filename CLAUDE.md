@@ -44,7 +44,12 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 - Barrierefreiheit wahren: sichtbarer Fokus, `prefers-reduced-motion`, ARIA an
   Markierungen/Notizen/Modalen, responsiv.
 - Mehrere Instanzen pro Seite dürfen sich nicht stören (instanz-lokaler Zustand,
-  gescopte Abfragen).
+  gescopte Abfragen); zwei Instanzen auf **demselben** Container werden abgelehnt.
+- **`<body>`/`<html>` als Container erzwingen schwebende Notizen.** Das
+  in-flow-Layout würde den Container umschließen und damit `<body>` aushängen —
+  `document.body` wäre `null` und die ganze Seite tot. Nicht aufweichen.
+- **`normalize()` nur am betroffenen Elternknoten**, nie dokumentweit: bei
+  `container: body` läge sonst fremd verwaltetes DOM (Block-Editor) darunter.
 
 ## Nach jeder Änderung
 

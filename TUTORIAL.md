@@ -150,7 +150,9 @@ sodass klar bleibt, zu welcher Seite sie gehört.
    Adminleiste. Der Knopf für alle Funktionen sitzt unten rechts.
 
 > **Aktualisieren:** neues ZIP aus dem aktuellen Release hochladen und die
-> vorhandene Version ersetzen lassen.
+> vorhandene Version ersetzen lassen. **Löschen** (nicht nur deaktivieren)
+> entfernt auch die gespeicherten Einstellungen inklusive der
+> Sammelstellen-Adresse.
 
 > **In Eingabefeldern und Editoren** (Textfelder, Block-Editor) löst das
 > Markieren von Text absichtlich *keinen* Kommentar aus — dort schreibt man.
@@ -382,6 +384,7 @@ den Kommentierenden ausdrücklich.
 |---|---|
 | Keine Empfangsbestätigung | Der Versand ist „abschicken und gut“ (CORS lässt keine lesbare Antwort zu). „Alle senden“ ist das Netz; Doppelte fängt die Kommentar-ID ab. |
 | Kein Rückkanal | Die Tabelle füllt sich, aber die Seite liest **nicht** aus ihr. Gemeinsames Sehen läuft weiterhin über „Kommentare laden“ (Abschnitt 4). |
+| Datenschutzerklärung | Unter *Werkzeuge → Datenschutz* liegt ein fertiger Textbaustein, sobald das Plugin aktiv ist. |
 | Öffentliche Adresse | Die `/exec`-Adresse steht im Seitenquelltext jeder Seite, auf der das Werkzeug läuft — bei einem Client-Werkzeug unvermeidbar. Wer sie kennt, kann Zeilen schreiben. Deshalb ist „Im Frontend nur angemeldete Nutzer:innen" ab Werk gesetzt. |
 | Apps-Script-Kontingente | Für Review-Runden weit ausreichend; bei sehr hohem Aufkommen sind Cloudflare Worker oder Airtable die robustere Wahl — die Adresse tauschst du einfach aus, die Nutzlast bleibt gleich. |
 

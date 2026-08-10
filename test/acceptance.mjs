@@ -663,7 +663,7 @@ const hook = await page.evaluate((url) => {
 }, HOOK);
 
 check("Webhook: „Alle senden“-Knopf vorhanden", hook.knopf === "Alle senden");
-check("Webhook: Knopf meldet den Versand zurück", hook.rueckmeldung === "Gesendet (1)");
+check("Webhook: Knopf meldet den Versand zurück", hook.rueckmeldung === "Abgeschickt (1)");
 check("Webhook: Hilfe nennt den Sende-Schritt", hook.schritte.includes("Senden"));
 check("Webhook: Hilfe weist auf den Datenversand hin",
   hook.hinweis.includes("zentrale Tabelle") && hook.hinweis.includes("Keine IP-Adresse"));
@@ -892,6 +892,108 @@ await page.evaluate((url) => {
 for (let i = 0; i < 40 && !riesig.length; i++) await page.waitForTimeout(100);
 check("Sammelstelle: Sendung über 64 KiB geht trotzdem raus",
   riesig.length === 1 && riesig[0] > 65536);
+
+// --- <body> als Container darf niemals ausgehängt werden -----------------
+const bodySchutz = await page.evaluate(() => {
+  // Demo-Instanz weicht; wir prüfen auf dem echten <body> dieser Seite
+  window.instanz.destroy();
+  let fehler = null, inst = null;
+  try {
+    inst = window.Kommentare.init({ container: "body", notes: "inline",
+                                    toolbarMode: "floating", autor: "B" });
+  } catch (e) { fehler = e.message; }
+  const res = {
+    initFehler: fehler,
+    bodyLebt: document.body !== null,
+    bodyAmHtml: document.body && document.body.parentNode === document.documentElement,
+    // der Schutz greift, indem auf schwebende Notizen umgeschaltet wird
+    notizenSchweben: inst ? inst.notesMode === "floating" : null,
+    // fremder Code muss danach weiterhin mit document.body arbeiten können
+    fremdesSkript: (function () {
+      try { var d = document.createElement("div"); document.body.appendChild(d);
+            document.body.removeChild(d); return "ok"; }
+      catch (e) { return e.message; }
+    })()
+  };
+  if (inst) inst.destroy();
+  return res;
+});
+check("body-Schutz: init wirft nicht", bodySchutz.initFehler === null);
+check("body-Schutz: document.body bleibt erhalten", bodySchutz.bodyLebt === true);
+check("body-Schutz: <body> hängt weiter am <html>", bodySchutz.bodyAmHtml === true);
+check("body-Schutz: Notizen schalten auf schwebend um", bodySchutz.notizenSchweben === true);
+check("body-Schutz: fremder Code kann document.body weiter nutzen", bodySchutz.fremdesSkript === "ok");
+
+// --- Ungültiger Container-Selektor wirft nicht ---------------------------
+await load();
+const selektor = await page.evaluate(() => {
+  const versuch = (sel) => {
+    try { const i = window.Kommentare.init({ container: sel, notes: "floating" });
+          i.destroy(); return "init"; }
+    catch (e) { return e.constructor.name; }
+  };
+  return { kaputt: versuch(".a,"), leer: versuch("#gibtesnicht") };
+});
+check("Selektor: ungültiger Selektor wirft nur die eigene Meldung",
+  selektor.kaputt === "Error" && selektor.leer === "Error");
+
+// --- Meldung an die Sammelstelle: URL, Löschen, Sitzungskennung ----------
+const HOOK4 = "https://beispiel.test/datenschutz";
+const ds = [];
+await page.route(HOOK4, async (route) => {
+  ds.push(JSON.parse(route.request().postData() || "{}"));
+  await route.fulfill({ status: 200, contentType: "text/plain", body: "ok" });
+});
+await load();
+const dsMeldung = await page.evaluate((url) => {
+  const host = document.createElement("div");
+  host.id = "dsx"; host.innerHTML = "<p>Ein Satz zum Melden hier.</p>";
+  document.querySelector(".wrap").appendChild(host);
+  // ohne Sammelstelle darf keine Sitzungskennung entstehen
+  const ohne = window.Kommentare.init({ container: "#dsx", notes: "floating", autor: "O" });
+  const ohneSitzung = ohne._sitzung;
+  ohne.destroy();
+
+  const inst = window.Kommentare.init({ container: "#dsx", notes: "floating", autor: "D", webhook: url });
+  const tn = host.querySelector("p").firstChild;
+  const r = document.createRange(); r.setStart(tn, 0); r.setEnd(tn, 8);
+  const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  host.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  inst._composeText.value = "Geheimer Kommentartext.";
+  inst._saveComment();
+  const id = [...inst.annos.keys()][0];
+  inst._removeAnno(id);
+  const res = { ohneSitzung, mitSitzung: inst._sitzung };
+  inst.destroy(); host.remove();
+  return res;
+}, HOOK4);
+for (let i = 0; i < 40 && ds.length < 2; i++) await page.waitForTimeout(100);
+const neu = (ds[0] || {}).eintraege ? ds[0].eintraege[0] : {};
+const weg = (ds[1] || {}).eintraege ? ds[1].eintraege[0] : {};
+check("Meldung: Sitzungskennung nur mit Sammelstelle",
+  dsMeldung.ohneSitzung === "" && dsMeldung.mitSitzung.length > 1);
+check("Meldung: Seiten-URL ohne Abfrageteil und Fragment",
+  typeof neu.seitenUrl === "string" && neu.seitenUrl.indexOf("?") === -1 &&
+  neu.seitenUrl.indexOf("#") === -1);
+check("Meldung: Löschen überträgt den Kommentartext nicht erneut",
+  weg.aktion === "gelöscht" && weg.kommentar === "" && weg.stelle === "" &&
+  weg.kommentarId === neu.kommentarId);
+
+// --- Import verkraftet unerwartete Inhalte ------------------------------
+const importRobust = await page.evaluate(() => {
+  const inst = window.instanz;
+  const versuch = (wert) => { try { return inst.import(wert); } catch (e) { return e.constructor.name; } };
+  return {
+    zahl: versuch(42), nullwert: versuch(null), leer: versuch({}),
+    falscheListe: versuch({ annotations: "keine Liste" }),
+    muell: versuch([null, 5, "x", {}]),
+    kaputtesJson: versuch("{nicht json")
+  };
+});
+check("Import: unerwartete Werte werfen nicht",
+  importRobust.zahl === 0 && importRobust.nullwert === 0 && importRobust.leer === 0 &&
+  importRobust.falscheListe === 0 && importRobust.muell === 0);
+check("Import: kaputtes JSON meldet sich weiterhin", importRobust.kaputtesJson === "SyntaxError");
 
 await browser.close();
 const failed = results.filter((r) => !r[1]);
