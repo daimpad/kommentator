@@ -343,29 +343,41 @@ body{
   --k-serif:var(--nz-body);
   --k-gap:var(--nz-space-7);
 }
-/* Der Dunkelmodus des Werkzeugs bringt eine eigene Palette mit. Seine Regel
-   ist `.kommentare-scope:not(.kommentare-light)` und damit spezifischer als
-   ein schlichtes `.kommentare-scope` — die nozilla-Werte brauchen dieselbe
-   Form, sonst gewinnt im Auto-Modus das Werkzeug. */
+/* Der Dunkelmodus des Werkzeugs bringt eine eigene Palette mit — unter
+   anderem ein Indigo als Akzent. Seine Regeln sind
+   `.kommentare-scope:not(.kommentare-light)` bzw. `.kommentare-scope.
+   kommentare-dark` und damit spezifischer als ein schlichtes
+   `.kommentare-scope`: Was hier fehlt, fällt im Dunkeln auf die Werkzeugfarbe
+   zurück. Deshalb steht hier JEDE Variable, die kommentare.css im Dunkelmodus
+   neu setzt — sonst tauchen einzelne Fremdfarben wieder auf (zuletzt das
+   Indigo an Eingabefeld, Speichern-Knopf und Titelpunkt).
+
+   Die Werte zeigen bewusst auf die --nz-*-Marken statt auf feste Farben: Die
+   kippen mit dem Modus schon von selbst, und es gibt sie nur an einer Stelle.
+   Grün und die Tinte darauf bleiben fest — das Signal wechselt nie mit. */
 @media(prefers-color-scheme:dark){
   .kommentare-scope:not(.kommentare-light){
-    --k-paper:#0C0C0A; --k-surface:#17160F; --k-ink:#FFFEE5;
-    --k-soft:rgba(255,254,229,.64); --k-line:rgba(255,254,229,.18);
-    --k-line-strong:#FFFEE5; --k-el:#FFFEE5;
+    --k-paper:var(--nz-paper); --k-surface:var(--nz-surface); --k-ink:var(--nz-ink);
+    --k-soft:var(--nz-ink-70); --k-line:var(--nz-hair); --k-line-strong:var(--nz-ink);
+    --k-accent:var(--nz-signal); --k-accent-ink:#000;
+    --k-accent-soft:var(--nz-signal-soft);
     /* Der Marker ist im CI IMMER Signal-Grün — nicht das Oliv, das das
        Werkzeug im Dunkelmodus von sich aus mitbringt. */
     --k-mark:var(--nz-signal); --k-mark-active:var(--nz-signal-strong);
     --k-mark-ink:#000; --k-mark-edge:#000;
-    --k-shadow:3px 3px 0 0 #FFFEE5; --k-shadow-lg:6px 6px 0 0 #FFFEE5;
+    --k-shadow:3px 3px 0 0 var(--nz-schatten);
+    --k-shadow-lg:6px 6px 0 0 var(--nz-schatten);
   }
 }
 .kommentare-scope.kommentare-dark{
-  --k-paper:#0C0C0A; --k-surface:#17160F; --k-ink:#FFFEE5;
-  --k-soft:rgba(255,254,229,.64); --k-line:rgba(255,254,229,.18);
-  --k-line-strong:#FFFEE5; --k-el:#FFFEE5;
+  --k-paper:var(--nz-paper); --k-surface:var(--nz-surface); --k-ink:var(--nz-ink);
+  --k-soft:var(--nz-ink-70); --k-line:var(--nz-hair); --k-line-strong:var(--nz-ink);
+  --k-accent:var(--nz-signal); --k-accent-ink:#000;
+  --k-accent-soft:var(--nz-signal-soft);
   --k-mark:var(--nz-signal); --k-mark-active:var(--nz-signal-strong);
   --k-mark-ink:#000; --k-mark-edge:#000;
-  --k-shadow:3px 3px 0 0 #FFFEE5; --k-shadow-lg:6px 6px 0 0 #FFFEE5;
+  --k-shadow:3px 3px 0 0 var(--nz-schatten);
+  --k-shadow-lg:6px 6px 0 0 var(--nz-schatten);
 }
 
 /* Marken im Werkzeug: Space Mono, VERSALIEN */
