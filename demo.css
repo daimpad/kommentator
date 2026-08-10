@@ -174,16 +174,25 @@ body{
   position:fixed;inset:0;z-index:3000;display:flex;align-items:center;
   justify-content:center;padding:var(--nz-space-5);background:rgba(0,0,0,.55);
 }
+/* Tinte, Linien und Schatten kommen aus den Variablen, nicht als festes
+   Schwarz: Im Dunkelmodus ist die Fläche fast schwarz — schwarze Schrift
+   darauf wäre unlesbar (gemessen 1,16:1). Nur was auf dem Signal-Grün liegt,
+   bleibt fest schwarz, denn das Grün wechselt mit dem Modus nicht. */
 .gate-box{
-  width:min(32rem,100%);background:var(--nz-surface);color:#000;
-  border:var(--nz-rule-w) solid #000;box-shadow:6px 6px 0 0 #000;
+  width:min(32rem,100%);background:var(--nz-paper);color:var(--nz-ink);
+  border:var(--nz-rule-w) solid var(--nz-ink);
+  box-shadow:6px 6px 0 0 var(--nz-schatten);
   padding:var(--nz-space-6);
+}
+.gate-head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:var(--nz-space-4);margin-bottom:var(--nz-space-4);
 }
 .gate-eyebrow{
   display:inline-block;font-family:var(--nz-mono);font-weight:700;font-size:11px;
   letter-spacing:.14em;text-transform:uppercase;
   background:var(--nz-signal);color:#000;
-  padding:var(--nz-space-1) var(--nz-space-2);margin-bottom:var(--nz-space-4);
+  padding:var(--nz-space-1) var(--nz-space-2);
 }
 .gate-box h2{
   font-family:var(--nz-display);font-weight:700;font-size:var(--nz-text-xl);
@@ -193,21 +202,39 @@ body{
 .gate-step{
   display:flex;align-items:center;gap:var(--nz-space-3);
   font-size:var(--nz-text-sm);line-height:1.5;
-  padding:var(--nz-space-3) 0;border-top:var(--nz-hair-w) solid rgba(0,0,0,.16);
+  padding:var(--nz-space-3) 0;border-top:var(--nz-hair-w) solid var(--nz-hair);
 }
 .gate-step:first-child{border-top:0}
-.gate-step svg{flex:0 0 auto;width:24px;height:24px;color:#000}
+.gate-step svg{flex:0 0 auto;width:24px;height:24px;color:var(--nz-ink)}
 .gate-box label{
   display:block;font-family:var(--nz-mono);font-weight:700;font-size:11px;
   letter-spacing:.12em;text-transform:uppercase;margin-bottom:var(--nz-space-2);
 }
 .gate-box input{
-  width:100%;font-family:var(--nz-body);font-size:var(--nz-text-base);color:#000;
-  background:#fff;border:var(--nz-rule-w) solid #000;
+  width:100%;font-family:var(--nz-body);font-size:var(--nz-text-base);
+  color:var(--nz-ink);background:var(--nz-surface);
+  border:var(--nz-rule-w) solid var(--nz-ink);
   padding:var(--nz-space-3) 14px;margin-bottom:var(--nz-space-5);
 }
 .gate-box input:focus{
   outline:var(--nz-strong-w) solid var(--nz-signal-strong);outline-offset:2px;
+}
+
+/* Hell/Dunkel im Modal — kleiner sekundärer Knopf, Fläche hell statt grün:
+   im CI trägt nur die Hauptaktion („Übernehmen") das Signal-Grün. */
+.gate-theme{
+  flex:0 0 auto;width:36px;height:36px;padding:0;
+  font-family:var(--nz-mono);font-size:var(--nz-text-base);line-height:1;
+  background:var(--nz-surface);color:var(--nz-ink);
+  border:var(--nz-rule-w) solid var(--nz-ink);border-radius:0;
+  box-shadow:3px 3px 0 0 var(--nz-schatten);cursor:pointer;
+  transition:transform var(--nz-dur-fast) var(--nz-ease),
+             box-shadow var(--nz-dur-fast) var(--nz-ease);
+}
+.gate-theme:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 0 var(--nz-schatten)}
+.gate-theme:active{transform:translate(3px,3px);box-shadow:0 0 0 0 var(--nz-schatten)}
+.gate-theme:focus-visible{
+  outline:var(--nz-strong-w) solid var(--nz-signal-strong);outline-offset:3px;
 }
 
 /* ============================================================================
@@ -217,7 +244,7 @@ body{
    der Schatten verschwindet. KEIN Farbumschlag — das macht im CI nur der
    Unterschied primär/sekundär.
    ========================================================================== */
-.gate-box button,
+#gate-go,
 .kommentare-btn,
 .kommentare-fab{
   font-family:var(--nz-mono);font-weight:700;font-size:var(--nz-text-sm);
@@ -232,18 +259,18 @@ body{
              background-color var(--nz-dur) var(--nz-ease),
              color var(--nz-dur) var(--nz-ease);
 }
-.gate-box button:hover,
+#gate-go:hover,
 .kommentare-btn:hover,
 .kommentare-fab:hover{
   background:var(--nz-surface);color:var(--nz-ink);border-color:var(--nz-ink);
   transform:translate(-2px,-2px);box-shadow:6px 6px 0 0 var(--nz-schatten);
 }
-.gate-box button:active,
+#gate-go:active,
 .kommentare-btn:active,
 .kommentare-fab:active{
   transform:translate(4px,4px);box-shadow:0 0 0 0 var(--nz-schatten);
 }
-.gate-box button:focus-visible,
+#gate-go:focus-visible,
 .kommentare-btn:focus-visible,
 .kommentare-fab:focus-visible{
   outline:var(--nz-strong-w) solid var(--nz-signal-strong);outline-offset:3px;
@@ -255,19 +282,19 @@ body{
 }
 
 /* Primär: Signal-Grün auf Tinte — im CI die einzige eingefärbte Fläche */
-.gate-box button,
+#gate-go,
 .kommentare-btn-primary,
 .kommentare-fab,
 .kommentare-mode-toggle.is-active{
   background:var(--nz-signal);color:#000;border-color:#000;
 }
-.gate-box button:hover,
+#gate-go:hover,
 .kommentare-btn-primary:hover,
 .kommentare-fab:hover,
 .kommentare-mode-toggle.is-active:hover{background:var(--nz-signal);color:#000}
 
 /* Größen: die kleinen Knöpfe an einer Notiz sind .nz-btn--sm */
-.gate-box button{width:100%;padding:var(--nz-space-4) var(--nz-space-5)}
+#gate-go{width:100%;padding:var(--nz-space-4) var(--nz-space-5)}
 .kommentare-btn{padding:var(--nz-space-3) 18px}
 .kommentare-btn.kommentare-icon{padding:var(--nz-space-3);min-width:auto}
 .kommentare-fab{width:56px;height:56px;padding:0;font-size:var(--nz-text-lg)}
@@ -277,9 +304,9 @@ body{
 .kommentare-note-actions .kommentare-btn:hover{box-shadow:5px 5px 0 0 var(--nz-schatten)}
 
 @media(prefers-reduced-motion:reduce){
-  .gate-box button,.kommentare-btn,.kommentare-fab{transition:none}
-  .gate-box button:hover,.kommentare-btn:hover,.kommentare-fab:hover,
-  .gate-box button:active,.kommentare-btn:active,.kommentare-fab:active{transform:none}
+  #gate-go,.kommentare-btn,.kommentare-fab{transition:none}
+  #gate-go:hover,.kommentare-btn:hover,.kommentare-fab:hover,
+  #gate-go:active,.kommentare-btn:active,.kommentare-fab:active{transform:none}
 }
 
 /* ============================================================================

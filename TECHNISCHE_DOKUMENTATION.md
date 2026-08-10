@@ -413,6 +413,17 @@ Alle Farben, Radien und Schatten liegen als CSS-Variablen auf
 Mit `onThemeChange` lässt sich die restliche Seite mitfärben (so macht es
 `demo.js` über `data-theme` am `<html>`).
 
+Wer eine Seite baut, die dem Werkzeug vorgeschaltet ist — ein Anmelde- oder
+Namensdialog etwa —, sollte dort schon umschalten lassen und die Wahl als
+`theme` in `init(...)` geben; sonst sitzt man bis zum Start in einer Ansicht
+fest. Die Demo macht genau das: Der Umschalter im Namens-Modal setzt
+`data-theme` am `<html>` und reicht den Wert an `init(...)` weiter.
+
+Wichtig für eigene Umgebungen: Farben, Linien und Schatten aus Variablen
+nehmen, nicht als festes `#000` schreiben. Sonst steht im Dunkelmodus schwarze
+Schrift auf schwarzer Fläche — der Akzeptanztest misst das Namens-Modal
+deshalb gegen 4,5:1.
+
 ---
 
 ## UI-Texte / i18n

@@ -4,7 +4,7 @@ Tags: annotation, kommentare, markierung, feedback, review
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.16.0
+Stable tag: 1.16.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -146,6 +146,13 @@ Knopf „Per E-Mail senden" öffnet einen lokalen Entwurf, es wird nichts
 serverseitig verschickt.
 
 == Changelog ==
+
+= 1.16.1 =
+* Geändert: Die Überschrift einer Punkt-Notiz und ihre Zeile im
+  Markdown-Export beginnen mit „◆" statt mit einem Farb-Emoji. Farb-Emoji
+  lassen sich weder einfärben noch dem Erscheinungsbild anpassen und sehen auf
+  jedem System anders aus. Am Datenmodell und an den Exporten ändert sich
+  sonst nichts.
 
 = 1.16.0 =
 Ergebnis einer Prüfung des Werkzeugs auf Code- und Bedienfehler.

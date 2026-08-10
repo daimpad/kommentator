@@ -114,4 +114,12 @@ läuft weiter über Pages/`main`. Diese Trennung nicht vermischen.
   `#00FF9C` nur für Aktionen, Radius immer 0, harte Versatz-Schatten). Das
   Werkzeug selbst bleibt farblich neutral — sonst kann es niemand sonst
   einsetzen.
+- **Keine Farb-Emoji** — weder in der Oberfläche noch in den Exporten noch in
+  der Doku. Sie lassen sich nicht einfärben, nicht themen und sehen auf jedem
+  System anders aus; das CI schließt sie aus. Einfarbige Zeichen als Symbol
+  (`☰`, `☾`/`☀`, `⬚`, `◆`) sind in Ordnung.
+- **Auch in `demo.css` Farben aus den Variablen nehmen, nie festes `#000`.**
+  Sonst steht im Dunkelmodus schwarze Schrift auf schwarzer Fläche. Fest
+  schwarz bleibt nur, was auf dem Signal-Grün liegt — das wechselt mit dem
+  Modus nicht.
 - Keine `console.log`-Reste, keine toten Optionen.
