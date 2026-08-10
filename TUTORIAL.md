@@ -150,10 +150,19 @@ sodass klar bleibt, zu welcher Seite sie gehört.
    wie im Backend** (wp-admin): Inhalt, Header, Footer, Admin-Menü und
    Adminleiste. Der Knopf für alle Funktionen sitzt unten rechts.
 
-> **Aktualisieren:** neues ZIP aus dem aktuellen Release hochladen und die
-> vorhandene Version ersetzen lassen. **Löschen** (nicht nur deaktivieren)
-> entfernt auch die gespeicherten Einstellungen inklusive der
-> Sammelstellen-Adresse.
+> **Aktualisieren:** Ab 1.17.0 meldet sich das Plugin selbst. Neue Fassungen
+> erscheinen wie bei jedem anderen Plugin unter **Plugins** und
+> **Dashboard → Aktualisierungen** — mit „Details anzeigen", Ein-Klick-Update
+> und dem Schalter für automatische Updates. Dafür fragt das Plugin höchstens
+> alle sechs Stunden bei GitHub nach; es wird nur gefragt, nie gemeldet.
+> Ungeduldig? In der Plugin-Liste steht **„Nach Updates suchen"**.
+> Abschalten: `add_filter('kommentare_updates', '__return_false');` — dann
+> wieder von Hand: neues ZIP hochladen und die vorhandene Version ersetzen
+> lassen. Wer noch 1.16.1 oder älter installiert hat, macht diesen einen
+> Schritt einmal von Hand; danach läuft es von allein.
+>
+> **Löschen** (nicht nur deaktivieren) entfernt auch die gespeicherten
+> Einstellungen inklusive der Sammelstellen-Adresse.
 
 > **In Eingabefeldern und Editoren** (Textfelder, Block-Editor) löst das
 > Markieren von Text absichtlich *keinen* Kommentar aus — dort schreibt man.

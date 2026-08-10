@@ -20,8 +20,9 @@ interne Funktionsweise des Kommentar-Werkzeugs.
 | `nozilla/` | Logo + zwei Schriftschnitte aus dem nozilla-CI (OFL), nur für die Demo |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` (für GitHub Pages) |
 | `wordpress/kommentare-tool/` | installierbares WordPress-Plugin (bündelt die Assets) |
+| `wordpress/kommentare-tool/updater.php` | Update-Anbindung an die GitHub-Releases |
 | `test/acceptance.mjs` | Headless-Akzeptanztest des Werkzeugs (Playwright) |
-| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungen, Filter-Vorrang) — ohne WordPress |
+| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungen, Filter-Vorrang, Update-Anbindung) — ohne WordPress |
 | `UEBERBLICK.md` | Was der Kommentator ist, wofür er taugt, für wen |
 
 Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten**,
@@ -515,6 +516,8 @@ bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 | `kommentare_rest_erlaubt` | bool | ob der Konfigurations-Endpunkt antwortet |
 | `kommentare_admin_ausnahmen` | array | Admin-Seiten ohne Werkzeug (Customizer, Site-Editor, Widgets, Datei-Editoren, eigene Einstellungsseite) |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
+| `kommentare_updates` | bool | `true` — ob nach neuen Fassungen gesucht wird |
+| `kommentare_update_repo` | string | `daimpad/kommentator` (Format `owner/repo`) |
 
 Die gebündelten Assets unter `wordpress/kommentare-tool/assets/` sind Kopien der
 Root-Dateien. Nach Änderungen synchronisieren:
@@ -522,6 +525,27 @@ Root-Dateien. Nach Änderungen synchronisieren:
 ```bash
 npm run sync-plugin-assets
 ```
+
+### Update-Anbindung (`updater.php`)
+
+Das Plugin liegt nicht im WordPress-Verzeichnis und meldet neue Fassungen
+deshalb selbst. Es hängt sich in `pre_set_site_transient_update_plugins` (Update
+anbieten) und `plugins_api` (Details-Fenster); der Header `Update URI` hält
+wordpress.org davon ab, den Slug für sich zu beanspruchen.
+
+| | |
+|---|---|
+| Quelle | `https://api.github.com/repos/<repo>/releases?per_page=10` |
+| Es zählt | erstes Release mit Tag `wp-v*`, kein Entwurf, keine Vorabfassung, mit Anhang `kommentare-tool-<version>.zip` |
+| Paketquelle | **nur** `https://` auf `github.com` — alles andere wird verworfen |
+| Zwischenspeicher | 6 h bei Erfolg, 15 min nach einem Fehlschlag (`kommentare_tool_release`) |
+| Bei Fehlern | nichts passiert: kein Hinweis, kein Abbruch, keine Wiederholungsschleife |
+| Sofort prüfen | Link „Nach Updates suchen" in der Plugin-Liste (Nonce + `update_plugins`) |
+
+Es wird nur gefragt, nie gemeldet: Die Anfrage trägt keine Angaben über die
+Website, nur eine Kennung der Art `kommentare-tool/<version>`. Die
+Release-Notizen sind fremder Text und werden vor der Anzeige maskiert — aus
+`updater.php` gelangt kein HTML aus der Antwort in die Seite.
 
 ---
 
