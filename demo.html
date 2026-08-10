@@ -25,7 +25,13 @@
 <!-- Namens-Modal (wird von demo.js gesteuert) -->
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
   <div class="gate-box">
-    <span class="gate-eyebrow">Kommentator</span>
+    <div class="gate-head">
+      <span class="gate-eyebrow">Kommentator</span>
+      <!-- Hell/Dunkel schon vor dem Start: die Wahl wird an init() weitergereicht -->
+      <button id="gate-theme" class="gate-theme" type="button"
+              aria-pressed="false" aria-label="Hell-/Dunkelmodus umschalten"
+              title="Hell-/Dunkelmodus umschalten">☾</button>
+    </div>
     <h2 id="gate-title">Willkommen</h2>
     <ul class="gate-steps">
       <li class="gate-step">

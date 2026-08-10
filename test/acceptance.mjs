@@ -438,7 +438,10 @@ const mixed = await page.evaluate(() => {
 });
 check("Markdown: kein Absturz bei gemischten Arten", mixed.crash === false && mixed.mailCrash === false);
 check("Markdown: kein 'undefined' im Text", mixed.md && !mixed.md.includes("undefined"));
-check("Markdown: Element- und Punkt-Überschriften", mixed.md.includes("⬚") && mixed.md.includes("📍"));
+check("Markdown: Element- und Punkt-Überschriften", mixed.md.includes("⬚") && mixed.md.includes("◆"));
+// Farb-Emoji lassen sich weder färben noch themen und sehen auf jedem System
+// anders aus — im Werkzeug haben sie nichts zu suchen.
+check("Markdown: keine Farb-Emoji", !/[\u{1F000}-\u{1FAFF}]/u.test(mixed.md));
 
 // --- Regression: Overlay-Position bei positioniertem/verschobenem <body> ---
 const offsetRes = await page.evaluate(() => {
@@ -535,6 +538,51 @@ const iconDunkel = await page.waitForFunction(() => {
 }, null, { timeout: 5000 }).then((h) => h.jsonValue()).catch(() => "timeout");
 check("Live-Theme: Knopf wechselt bei Systemwechsel (auto)", iconHell === "☾" && iconDunkel === "☀");
 await page.emulateMedia({ colorScheme: "light" });
+
+// --- Namens-Modal im Dunkelmodus: lesbar, und die Wahl geht an init() ------
+// Vorher stand dort schwarze Schrift auf fast schwarzer Fläche (1,16:1).
+await page.emulateMedia({ colorScheme: "dark" });
+await page.goto(demoUrl);
+const gateDunkel = await page.evaluate(() => {
+  const lum = (c) => {
+    const m = c.match(/[\d.]+/g).map(Number);
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]);
+  };
+  const kontrast = (a, b) => {
+    const l1 = lum(a), l2 = lum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  };
+  const box = document.querySelector(".gate-box");
+  const flaeche = getComputedStyle(box).backgroundColor;
+  const werte = [".gate-box h2", ".gate-step", ".gate-box label", ".gate-step svg"]
+    .map((s) => kontrast(getComputedStyle(document.querySelector(s)).color, flaeche));
+  const feld = document.querySelector(".gate-box input");
+  werte.push(kontrast(getComputedStyle(feld).color, getComputedStyle(feld).backgroundColor));
+  return { min: Math.min.apply(null, werte),
+           icon: document.getElementById("gate-theme").textContent };
+});
+check("Modal dunkel: Text erfüllt 4,5:1", gateDunkel.min >= 4.5);
+check("Modal dunkel: Umschalter zeigt die Sonne", gateDunkel.icon === "☀");
+await page.click("#gate-theme");
+const gateHell = await page.evaluate(() => ({
+  attr: document.documentElement.getAttribute("data-theme"),
+  icon: document.getElementById("gate-theme").textContent,
+  pressed: document.getElementById("gate-theme").getAttribute("aria-pressed")
+}));
+check("Modal: Umschalter setzt data-theme am <html>",
+      gateHell.attr === "light" && gateHell.icon === "☾" && gateHell.pressed === "false");
+await page.fill("#gate-name", "Gast");
+await page.click("#gate-go");
+const uebernommen = await page.evaluate(() => {
+  const scope = document.querySelector(".kommentare-scope");
+  return { hell: scope.classList.contains("kommentare-light"),
+           dunkel: scope.classList.contains("kommentare-dark") };
+});
+check("Modal: gewähltes Theme startet das Werkzeug",
+      uebernommen.hell === true && uebernommen.dunkel === false);
+await page.emulateMedia({ colorScheme: "light" });
+await load();
 
 // --- ARIA: Panel ist region (kein menu), FAB verweist per aria-controls ---
 const aria = await page.evaluate(() => {

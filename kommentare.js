@@ -1492,7 +1492,7 @@
             (a.fingerprint ? ": „" + a.fingerprint + "“" : "");
         } else if (a.kind === "point") {
           note.classList.add("kommentare-note-point");
-          quoteEl.textContent = "📍 " + T.punktLabel + (a.tag ? " · " + a.tag : "");
+          quoteEl.textContent = "◆ " + T.punktLabel + (a.tag ? " · " + a.tag : "");
         } else {
           quoteEl.textContent = "„" + a.quote + "“";
         }
@@ -1832,7 +1832,7 @@
           head = "⬚ " + (a.tag || T.elementLabel) +
             (a.fingerprint ? ": „" + a.fingerprint + "“" : "");
         } else if (a.kind === "point") {
-          head = "📍 " + T.punktLabel + (a.tag ? " · " + a.tag : "");
+          head = "◆ " + T.punktLabel + (a.tag ? " · " + a.tag : "");
         } else {
           head = "„" + a.quote + "“";
         }

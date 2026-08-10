@@ -25,7 +25,8 @@ Kein Server, kein Build nötig.
 1. Repository herunterladen (grüner „Code“-Button → *Download ZIP*, oder
    `git clone`).
 2. `demo.html` im Browser öffnen (Doppelklick).
-3. Namen eingeben → **Übernehmen**.
+3. Namen eingeben → **Übernehmen**. (Oben rechts im Modal steht der
+   ☾/☀-Umschalter, falls dir hell oder dunkel lieber ist.)
 4. Im Text mit der Maus eine Stelle markieren → Kommentar eintippen →
    **Speichern**.
 
@@ -111,7 +112,7 @@ Alle Optionen: [Technische Dokumentation](TECHNISCHE_DOKUMENTATION.md).
 | **Als PDF / drucken** | öffnet den Druckdialog → „Als PDF speichern“ (Bedienelemente werden ausgeblendet) |
 | **Per E-Mail senden** | lädt die Datei herunter und öffnet einen E-Mail-Entwurf (falls konfiguriert) |
 | **Hilfe** | „?“ im Menü zeigt die Kurzanleitung |
-| **Hell/Dunkel** | ☾/☀ im Menü |
+| **Hell/Dunkel** | ☾/☀ im Menü — und schon vorher im Namens-Modal oben rechts |
 
 Kommentare bleiben im Browser der Sitzung — bis du sie exportierst.
 
