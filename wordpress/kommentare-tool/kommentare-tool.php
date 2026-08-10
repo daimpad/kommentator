@@ -3,7 +3,7 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.14.0
+ * Version:           1.15.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
@@ -28,7 +28,7 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('KOMMENTARE_VERSION')) {
-    define('KOMMENTARE_VERSION', '1.14.0');
+    define('KOMMENTARE_VERSION', '1.15.0');
 }
 
 /* ===========================================================================
@@ -44,6 +44,7 @@ function kommentare_standard_optionen() {
     return array(
         'webhook'      => '',      // Adresse der zentralen Sammelstelle
         'webhook_auto' => 1,       // automatisch bei jeder Änderung melden
+        'webhook_token' => '',     // gemeinsames Geheimwort für die Sammelstelle
         'email'        => '',      // Empfänger für „Per E-Mail senden"
         'container'    => 'body',  // kommentierbarer Bereich
         'frontend'     => 1,       // im Frontend laden
@@ -130,6 +131,13 @@ function kommentare_optionen_pruefen($eingabe) {
         );
     }
     $sauber['email'] = $mail;
+
+    // Geheimwort: beliebiger Text, nur Länge und Steuerzeichen begrenzen.
+    $token = sanitize_text_field($text('webhook_token'));
+    if (strlen($token) > 200) {
+        $token = substr($token, 0, 200);
+    }
+    $sauber['webhook_token'] = $token;
 
     // Container-Selektor: grob validieren, damit ein Tippfehler nicht erst im
     // Browser auffällt (dort risse ein ungültiger Selektor bei
@@ -279,6 +287,21 @@ function kommentare_einstellungsseite() {
                     </td>
                 </tr>
                 <tr>
+                    <th scope="row">
+                        <label for="kommentare-token"><?php esc_html_e('Geheimwort', 'kommentare-tool'); ?></label>
+                    </th>
+                    <td>
+                        <input name="kommentare_optionen[webhook_token]" id="kommentare-token" type="text"
+                               class="regular-text code" spellcheck="false" autocomplete="off"
+                               value="<?php echo esc_attr($o['webhook_token']); ?>">
+                        <p class="description">
+                            <?php esc_html_e('Wird bei jeder Meldung als „token" mitgeschickt. Das Apps Script kann damit fremde Einträge abweisen — nötig, weil die Adresse der Sammelstelle im Seitenquelltext steht und sich nicht geheim halten lässt.', 'kommentare-tool'); ?>
+                            <br>
+                            <?php esc_html_e('Trage denselben Wert im Apps Script ein (Konstante GEHEIMWORT) und veröffentliche danach eine neue Version. Leer = keine Prüfung.', 'kommentare-tool'); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row"><?php esc_html_e('Versand', 'kommentare-tool'); ?></th>
                     <td>
                         <label>
@@ -422,6 +445,21 @@ function kommentare_should_load_admin($hook_suffix = '') {
 }
 
 /**
+ * Welche init-Optionen sind personen- bzw. schutzbezogen?
+ *
+ * Diese Werte gehen NICHT ins ausgelieferte HTML, sondern werden vom Browser
+ * über einen eigenen Endpunkt nachgeladen — er prüft die Berechtigung
+ * erneut. Dadurch enthält die Seite selbst weder einen Klarnamen noch die
+ * Adresse der Sammelstelle, und ein fehlgeleiteter Seiten-Cache kann beides
+ * nicht an Fremde ausliefern.
+ *
+ * @return string[]
+ */
+function kommentare_persoenliche_schluessel() {
+    return array('autor', 'webhook', 'webhookAuto', 'webhookToken', 'email');
+}
+
+/**
  * init-Optionen für das Werkzeug zusammenstellen.
  *
  * @param bool $is_admin Backend-Kontext?
@@ -471,6 +509,8 @@ function kommentare_build_config($is_admin = false) {
         'webhook'     => (string) apply_filters('kommentare_webhook', kommentare_option('webhook')),
         // Automatisch bei jeder Änderung melden (sonst nur „Alle senden“)
         'webhookAuto' => (bool) apply_filters('kommentare_webhook_auto', (bool) kommentare_option('webhook_auto')),
+        // Gemeinsames Geheimwort für die Sammelstelle (leer = keins)
+        'webhookToken' => (string) apply_filters('kommentare_webhook_token', kommentare_option('webhook_token')),
     );
 
     // Weitere init-Optionen (z. B. eigene UI-Texte) frei ergänzbar:
@@ -506,6 +546,22 @@ function kommentare_enqueue($is_admin = false) {
 
     $config = kommentare_build_config($is_admin);
 
+    // Persönliche Werte (Name, Sammelstelle, Geheimwort, E-Mail) aus dem HTML
+    // heraushalten — sie kommen gleich über den Endpunkt nach. Im HTML bleibt
+    // nur, was für jede:n gleich ist und damit gefahrlos cachebar ist.
+    $persoenlich = array();
+    foreach (kommentare_persoenliche_schluessel() as $schluessel) {
+        if (array_key_exists($schluessel, $config)) {
+            $persoenlich[$schluessel] = $config[$schluessel];
+            unset($config[$schluessel]);
+        }
+    }
+    // Ohne Nachladen wäre der Autorname leer — bis dahin „Gast".
+    $config['autor'] = 'Gast';
+
+    $endpunkt = esc_url_raw(rest_url('kommentare-tool/v1/konfiguration'));
+    $nonce    = wp_create_nonce('wp_rest');
+
     // Robuster Start:
     // - try/catch, damit ein Fehler nicht das ganze (womöglich von einem
     //   Optimierungs-Plugin zusammengefasste) Skriptbündel mitreißt.
@@ -513,16 +569,80 @@ function kommentare_enqueue($is_admin = false) {
     //   geladen, ist window.Kommentare beim ersten Anlauf noch nicht da.
     //   Ohne Wiederholung fehlte das Werkzeug spurlos.
     // - Der Block-Editor baut seine Oberfläche erst nach DOMContentLoaded auf.
-    $init = '(function(){var n=0;function s(){'
+    // - Die persönlichen Werte werden davor geholt; scheitert das, startet das
+    //   Werkzeug trotzdem — dann eben ohne Namen und ohne Sammelstelle.
+    $init = '(function(){var n=0,c=' . wp_json_encode($config) . ';'
+          . 'function start(){'
           . 'if(window.kommentareInstanz)return;'
-          . 'if(!window.Kommentare){if(++n<40){setTimeout(s,150);}return;}'
-          . 'try{window.kommentareInstanz=window.Kommentare.init(' . wp_json_encode($config) . ');}'
+          . 'if(!window.Kommentare){if(++n<40){setTimeout(start,150);}return;}'
+          . 'try{window.kommentareInstanz=window.Kommentare.init(c);}'
           . 'catch(e){if(window.console&&console.warn){console.warn("Kommentator:",e&&e.message);}}}'
+          . 'var geholt=false;'
+          . 'function holen(){'
+          . 'if(geholt){start();return;}geholt=true;'   // nur ein Abruf, auch bei 'load'
+          . 'if(!window.fetch){start();return;}'
+          . 'fetch(' . wp_json_encode($endpunkt) . ',{credentials:"same-origin",'
+          . 'headers:{"X-WP-Nonce":' . wp_json_encode($nonce) . '}})'
+          . '.then(function(r){return r.ok?r.json():null;})'
+          . '.then(function(p){if(p){for(var k in p){if(Object.prototype.hasOwnProperty.call(p,k))c[k]=p[k];}}})'
+          . '["catch"](function(){})'
+          . '.then(function(){start();});}'
+          . 'function s(){holen();}'
           . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){setTimeout(s,0);});}'
           . 'else{setTimeout(s,0);}'
           . 'window.addEventListener("load",function(){setTimeout(s,0);});})();';
 
     wp_add_inline_script('kommentare-tool', $init);
+}
+
+/**
+ * Endpunkt für die personenbezogenen Werte.
+ *
+ * Getrennt vom HTML, damit die Seite selbst weder Klarnamen noch die Adresse
+ * der Sammelstelle enthält: Ein Voll-Seiten-Cache kann dann nichts
+ * Persönliches an Fremde ausliefern, und wer die Seite ohne Anmeldung abruft,
+ * bekommt hier nichts.
+ */
+function kommentare_rest_registrieren() {
+    register_rest_route('kommentare-tool/v1', '/konfiguration', array(
+        'methods'             => 'GET',
+        'callback'            => 'kommentare_rest_konfiguration',
+        'permission_callback' => 'kommentare_rest_erlaubt',
+    ));
+}
+add_action('rest_api_init', 'kommentare_rest_registrieren');
+
+/**
+ * Dieselbe Prüfung wie beim Ausliefern — im REST-Kontext greifen die
+ * Frontend-/Backend-Bedingungen nicht, deshalb ausdrücklich nachgebildet.
+ *
+ * @return bool
+ */
+function kommentare_rest_erlaubt() {
+    if (is_user_logged_in()) {
+        return true;
+    }
+    // Nicht angemeldet: nur, wenn das Werkzeug überhaupt offen ausgeliefert
+    // wird (Frontend an UND „nur angemeldet" aus).
+    $offen = kommentare_option('frontend') && !kommentare_option('nur_eingeloggt');
+    return (bool) apply_filters('kommentare_rest_erlaubt', (bool) $offen);
+}
+
+/**
+ * @return WP_REST_Response
+ */
+function kommentare_rest_konfiguration() {
+    $config = kommentare_build_config(false);
+    $raus   = array();
+    foreach (kommentare_persoenliche_schluessel() as $schluessel) {
+        if (array_key_exists($schluessel, $config)) {
+            $raus[$schluessel] = $config[$schluessel];
+        }
+    }
+    $antwort = rest_ensure_response($raus);
+    // Persönliche Antwort: niemals zwischenspeichern.
+    $antwort->header('Cache-Control', 'no-store, private');
+    return $antwort;
 }
 
 /**

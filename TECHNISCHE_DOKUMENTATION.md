@@ -49,6 +49,7 @@ Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten*
 | `emailSubject` | String | optionaler Betreff-Präfix (Standard: „Kommentare“ + Seitentitel) |
 | `webhook` | String | `http(s)`-Adresse einer zentralen Sammelstelle; neue Kommentare werden dorthin gemeldet. Leer (Standard) = aus, es verlässt nichts den Browser |
 | `webhookAuto` | Boolean | automatisch bei jeder Änderung melden (Standard: `true`); `false` = nur der Knopf „Alle senden“ |
+| `webhookToken` | String | optionales Geheimwort; wird als `token` im Brief mitgeschickt, damit die Gegenstelle Fremdeinträge abweist |
 | `help` | Boolean | „?“-Hilfe-Button mit Kurzanleitung (Standard: `true`) |
 | `themeToggle` | Boolean | Hell-/Dunkel-Umschalter (Standard: `false`) |
 | `theme` | String | Anfangs-Theme: `'auto'` (Standard), `'light'`, `'dark'` |
@@ -273,6 +274,20 @@ Gegenstelle jeden Eintrag direkt als Tabellenzeile anhängen kann:
 | `kommentarId` | stabile Annotations-`id` — **der Schlüssel zum Entdoppeln** |
 | `sitzung` | anonyme Sitzungskennung (siehe unten) |
 
+### Geheimwort
+
+Die Adresse der Sammelstelle steht bei einer statischen Einbindung
+zwangsläufig im Seitenquelltext — wer sie kennt, kann schreiben. Mit
+`webhookToken` geht bei jeder Meldung ein `token`-Feld mit, das die Gegenstelle
+prüfen kann:
+
+```json
+{ "generator": "kommentar-tool", "version": 1, "token": "…", "eintraege": [ … ] }
+```
+
+Das Apps-Script-Beispiel im Tutorial weist Briefe ohne passenden Wert ab. Kein
+Ersatz für Zugriffsschutz, aber es macht die offene Adresse wertlos.
+
 ### Keine IP-Adresse
 
 Browser-JS kennt die eigene IP nicht, und ein Apps-Script-Web-App bekommt sie
@@ -411,6 +426,27 @@ Kommentare.init({
 Ordner `wordpress/kommentare-tool/` nach `wp-content/plugins/` kopieren (oder als
 ZIP hochladen) und aktivieren.
 
+### Persönliche Werte werden nachgeladen
+
+Autorname, Adresse der Sammelstelle, Geheimwort und E-Mail-Empfänger stehen
+**nicht** im ausgelieferten HTML. Das Inline-Skript enthält nur, was für alle
+gleich ist; die persönlichen Werte holt der Browser über
+
+```
+GET /wp-json/kommentare-tool/v1/konfiguration
+```
+
+Der Endpunkt prüft die Berechtigung erneut (`kommentare_rest_erlaubt`,
+filterbar) und antwortet mit `Cache-Control: no-store, private`. Scheitert der
+Abruf, startet das Werkzeug trotzdem — dann ohne Namen und ohne Sammelstelle,
+also im harmlosen Zustand.
+
+Zweck: Ein fehlgeleiteter Voll-Seiten-Cache kann nichts Persönliches an Fremde
+ausliefern, und wer die Seite ohne Anmeldung abruft, bekommt die Adresse der
+Sammelstelle nicht zu sehen. `DONOTCACHEPAGE` bleibt zusätzlich gesetzt.
+
+Welche Schlüssel betroffen sind, steht in `kommentare_persoenliche_schluessel()`.
+
 ### Einstellungsseite (Einstellungen → Kommentator)
 
 Das Wesentliche ist im Backend eintragbar — ohne `functions.php`. Gespeichert
@@ -420,6 +456,7 @@ wird als **eine** Option `kommentare_optionen` (Array):
 |---|---|---|---|
 | `webhook` | string | leer | Adresse der zentralen Sammelstelle; leer = aus |
 | `webhook_auto` | 0/1 | `1` | automatisch bei jeder Änderung melden |
+| `webhook_token` | string | leer | Geheimwort für die Sammelstelle |
 | `container` | string | `body` | kommentierbarer Bereich (CSS-Selektor) |
 | `email` | string | leer | Empfänger für „Per E-Mail senden“ |
 | `frontend` | 0/1 | `1` | im Frontend laden |
@@ -455,6 +492,8 @@ bekommt. Bestehende `functions.php`-Einbindungen wirken unverändert weiter.
 | `kommentare_exclude` | string, `$is_admin` | Frontend `#wpadminbar`, Backend leer |
 | `kommentare_webhook` | string | Einstellung `webhook` (leer = aus) |
 | `kommentare_webhook_auto` | bool | Einstellung `webhook_auto` (`true`) |
+| `kommentare_webhook_token` | string | Einstellung `webhook_token` (leer) |
+| `kommentare_rest_erlaubt` | bool | ob der Konfigurations-Endpunkt antwortet |
 | `kommentare_admin_ausnahmen` | array | Admin-Seiten ohne Werkzeug (Customizer, Site-Editor, Widgets, Datei-Editoren, eigene Einstellungsseite) |
 | `kommentare_init_config` | array | vollständige init-Optionen (z. B. `texte`) |
 

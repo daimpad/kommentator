@@ -19,6 +19,9 @@
                                             Google-Apps-Script-Web-App. Leer = aus)
          webhookAuto: Boolean              (automatisch bei jeder Änderung senden;
                                             Standard: an, sobald webhook gesetzt ist)
+         webhookToken: String              (optionales Geheimwort; wird als
+                                            'token' mitgeschickt, damit die
+                                            Gegenstelle Fremdeinträge abweist)
          onCreate  : (anno) => void        (Callback nach dem Anlegen)
          onUpdate  : (anno) => void        (Callback nach dem Bearbeiten)
          onDelete  : (id)   => void        (Callback nach dem Löschen)
@@ -254,6 +257,10 @@
       this.webhook = String(options.webhook);
     }
     this.webhookAuto = options.webhookAuto !== false;
+    // Gemeinsames Geheimwort: die Gegenstelle kann damit fremde Einträge
+    // abweisen. Ohne das kann jede:r schreiben, der die Adresse kennt — und
+    // die steht zwangsläufig im Seitenquelltext.
+    this.webhookToken = options.webhookToken ? String(options.webhookToken) : "";
     // Anonyme Sitzungskennung (keine IP) — nur anlegen, wenn tatsächlich
     // gemeldet wird. Ohne Sammelstelle wird nichts gespeichert.
     this._sitzung = this.webhook ? sitzungsId() : "";
@@ -1658,12 +1665,14 @@
     },
     // Eine Sendung verpacken (JSON-Text).
     _webhookPayload: function (entries) {
-      return JSON.stringify({
+      var brief = {
         generator: "kommentar-tool",
         version: 1,
         gesendet: new Date().toISOString(),
         eintraege: entries
-      });
+      };
+      if (this.webhookToken) brief.token = this.webhookToken;
+      return JSON.stringify(brief);
     },
     // Einträge so bündeln, dass jede Sendung unter der 64-KiB-Grenze bleibt,
     // die sowohl sendBeacon als auch fetch({keepalive:true}) setzen. Ein
