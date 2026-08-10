@@ -49,8 +49,9 @@ done
 
 # --- 3) PHP-Syntax prüfen, falls PHP verfügbar -----------------------------
 if command -v php >/dev/null 2>&1; then
-  php -l "$PLUGIN_DIR/kommentare-tool.php" >/dev/null \
-    || fehler "PHP-Syntaxfehler in kommentare-tool.php."
+  for f in kommentare-tool.php updater.php uninstall.php; do
+    php -l "$PLUGIN_DIR/$f" >/dev/null || fehler "PHP-Syntaxfehler in $f."
+  done
 fi
 
 # --- 4) ZIP bauen ----------------------------------------------------------
@@ -59,7 +60,7 @@ rm -rf "$DIST/kommentare-tool" "$ZIP"
 mkdir -p "$DIST/kommentare-tool"
 
 cp "$PLUGIN_DIR/kommentare-tool.php" "$PLUGIN_DIR/readme.txt" \
-   "$PLUGIN_DIR/uninstall.php" "$DIST/kommentare-tool/"
+   "$PLUGIN_DIR/uninstall.php" "$PLUGIN_DIR/updater.php" "$DIST/kommentare-tool/"
 mkdir -p "$DIST/kommentare-tool/assets"
 cp "$PLUGIN_DIR/assets/kommentare.js" "$PLUGIN_DIR/assets/kommentare.css" \
    "$DIST/kommentare-tool/assets/"

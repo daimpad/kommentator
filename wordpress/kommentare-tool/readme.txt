@@ -4,7 +4,7 @@ Tags: annotation, kommentare, markierung, feedback, review
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.0
-Stable tag: 1.16.1
+Stable tag: 1.17.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -107,6 +107,11 @@ konfiguriert hat, muss nichts ändern.
   Standard: an. Aus = nur der Knopf „Alle senden" schickt.
 * `kommentare_init_config` (array, bool $is_admin) – vollständige init-Optionen;
   hier lassen sich z. B. eigene UI-Texte (`texte`) ergänzen.
+* `kommentare_updates` (bool) – ob nach neuen Fassungen gesucht wird.
+  Standard: an. `__return_false` schaltet die Anfrage an GitHub ganz ab.
+* `kommentare_update_repo` (string) – Repository im Format `owner/repo`, aus
+  dessen Releases aktualisiert wird. Standard: `daimpad/kommentator`. Das
+  Paket muss ein Anhang auf github.com sein, sonst wird es verworfen.
 
 Beispiel (functions.php des Themes):
 
@@ -119,8 +124,18 @@ Beispiel (functions.php des Themes):
 
 == Externe Dienste ==
 
-Im Auslieferungszustand kontaktiert das Plugin **keinen** externen Dienst; es
-verlässt kein Kommentar den Browser.
+**Aktualisierungen (GitHub).** Das Plugin liegt nicht im WordPress-Verzeichnis
+und fragt deshalb selbst nach neuen Fassungen: höchstens alle sechs Stunden
+eine Leseanfrage an `https://api.github.com/repos/daimpad/kommentator/releases`.
+Übermittelt wird dabei nichts über die Website — nur die technisch
+unvermeidbare IP-Adresse des Servers und eine Kennung der Art
+„kommentare-tool/1.17.0". Es werden keine Kommentare, Adressen, Namen oder
+Nutzungsdaten gesendet. Abschalten: `add_filter('kommentare_updates',
+'__return_false');` — dann findet keine Anfrage statt, Updates müssen dann
+wieder von Hand eingespielt werden.
+
+Ansonsten kontaktiert das Plugin im Auslieferungszustand **keinen** externen
+Dienst; es verlässt kein Kommentar den Browser.
 
 Wird unter „Einstellungen → Kommentator" eine **Sammelstelle** eingetragen,
 meldet der Browser jede Änderung an diese Adresse. Übermittelt werden:
@@ -146,6 +161,21 @@ Knopf „Per E-Mail senden" öffnet einen lokalen Entwurf, es wird nichts
 serverseitig verschickt.
 
 == Changelog ==
+
+= 1.17.0 =
+* Neu: Das Plugin meldet neue Fassungen selbst. Sie erscheinen wie bei jedem
+  anderen Plugin unter „Plugins" und „Dashboard → Aktualisierungen" — mit
+  Details-Fenster, Ein-Klick-Update und dem Schalter für automatische Updates.
+  Das Herunterladen und Hochladen von Hand entfällt.
+* Dazu fragt das Plugin höchstens alle sechs Stunden die Releases dieses
+  Repositories bei GitHub ab. Es wird nur gefragt, nie gemeldet: keine
+  Kommentare, keine Adressen, keine Namen, keine Nutzungsdaten. Abschalten mit
+  `add_filter('kommentare_updates', '__return_false')`.
+* Als Paketquelle wird ausschließlich ein ZIP-Anhang auf github.com
+  akzeptiert. Scheitert die Abfrage, passiert nichts — kein Fehler, kein
+  Hinweis, und für 15 Minuten keine neue Anfrage.
+* In der Plugin-Liste steht jetzt „Nach Updates suchen", wenn das Warten auf
+  die nächste Abfrage zu lange dauert.
 
 = 1.16.1 =
 * Geändert: Die Überschrift einer Punkt-Notiz und ihre Zeile im

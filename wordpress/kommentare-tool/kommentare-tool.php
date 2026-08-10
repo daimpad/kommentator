@@ -3,13 +3,14 @@
  * Plugin Name:       Kommentare (Textstellen-Annotation)
  * Plugin URI:        https://github.com/daimpad/kommentator
  * Description:        Bindet das statische Kommentar-Werkzeug in Beiträge/Seiten ein: Textstellen markieren, kommentieren, als JSON exportieren und mehrere Exporte zusammenführen. Kein Backend, keine externen Abhängigkeiten.
- * Version:           1.16.1
+ * Version:           1.17.0
  * Requires at least: 5.0
  * Requires PHP:      7.0
  * Author:            daimpad
  * License:           MIT
  * License URI:       https://opensource.org/licenses/MIT
  * Text Domain:       kommentare-tool
+ * Update URI:        https://github.com/daimpad/kommentator
  *
  * ---------------------------------------------------------------------------
  * HINWEIS ZUM ZUGRIFFSSCHUTZ
@@ -28,8 +29,18 @@ if (!defined('ABSPATH')) {
 }
 
 if (!defined('KOMMENTARE_VERSION')) {
-    define('KOMMENTARE_VERSION', '1.16.1');
+    define('KOMMENTARE_VERSION', '1.17.0');
 }
+
+/* Pfad der Hauptdatei — die Update-Anbindung braucht ihn für
+   plugin_basename(); __FILE__ wäre dort die updater.php. */
+if (!defined('KOMMENTARE_DATEI')) {
+    define('KOMMENTARE_DATEI', __FILE__);
+}
+
+/* Aktualisierungen kommen aus den GitHub-Releases dieses Repositories —
+   das Plugin liegt nicht im WordPress-Verzeichnis. Siehe updater.php. */
+require_once __DIR__ . '/updater.php';
 
 /* ===========================================================================
  * EINSTELLUNGEN (Einstellungen → Kommentator)

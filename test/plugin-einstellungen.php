@@ -78,6 +78,33 @@ function wp_enqueue_style() {}
 function wp_enqueue_script() {}
 function wp_add_inline_script() {}
 
+/* --- Attrappe fuer die Update-Anbindung ---------------------------------
+   $GLOBALS['http'] ist die vorgegebene Antwort auf wp_remote_get(),
+   $GLOBALS['transient'] der Netzwerk-Zwischenspeicher. So laesst sich die
+   GitHub-Abfrage pruefen, ohne jemanden zu fragen. */
+define('HOUR_IN_SECONDS', 3600);
+define('MINUTE_IN_SECONDS', 60);
+$GLOBALS['http'] = null;
+$GLOBALS['http_aufrufe'] = 0;
+$GLOBALS['transient'] = array();
+class AttrappeFehler {}
+function wp_remote_get($url, $args = array()) {
+    $GLOBALS['http_aufrufe']++;
+    $GLOBALS['http_url'] = $url;
+    return $GLOBALS['http'] === null ? new AttrappeFehler() : $GLOBALS['http'];
+}
+function is_wp_error($d) { return $d instanceof AttrappeFehler; }
+function wp_remote_retrieve_response_code($r) { return is_array($r) ? ($r['code'] ?? 0) : 0; }
+function wp_remote_retrieve_body($r) { return is_array($r) ? ($r['body'] ?? '') : ''; }
+function get_site_transient($k) { return $GLOBALS['transient'][$k] ?? false; }
+function set_site_transient($k, $v, $t = 0) { $GLOBALS['transient'][$k] = $v; }
+function delete_site_transient($k) { unset($GLOBALS['transient'][$k]); }
+function wp_nonce_url($u, $a = -1) { return $u . '&_wpnonce=nonce123'; }
+function wp_verify_nonce($n, $a = -1) { return $n === 'nonce123'; }
+function add_query_arg($k, $v, $u) { return $u . '?' . $k . '=' . $v; }
+function wp_unslash($v) { return $v; }
+function wp_safe_redirect($u) { $GLOBALS['redirect'] = $u; }
+
 require __DIR__ . "/../wordpress/kommentare-tool/kommentare-tool.php";
 
 $ok = 0; $bad = 0;
@@ -256,6 +283,144 @@ $t = kommentare_optionen_pruefen(array('webhook_token' => str_repeat('x', 400)))
 pruef('Geheimwort: auf 200 Zeichen begrenzt', strlen($t['webhook_token']) === 200);
 $t = kommentare_optionen_pruefen(array('webhook_token' => array('x')));
 pruef('Geheimwort: Array wird verworfen', $t['webhook_token'] === '');
+
+/* ---------------------------------------------------------------------------
+   Update-Anbindung an die GitHub-Releases
+   ------------------------------------------------------------------------ */
+function release_antwort($releases) {
+    return array('code' => 200, 'body' => json_encode($releases));
+}
+function release($tag, $anhang = null, $extra = array()) {
+    $r = array('tag_name' => $tag, 'html_url' => 'https://github.com/x/y/releases/tag/' . $tag,
+               'body' => "### Aenderungen\n* etwas", 'published_at' => '2026-08-10T00:00:00Z',
+               'assets' => $anhang === null ? array() : array($anhang));
+    return array_merge($r, $extra);
+}
+function anhang($name, $url) { return array('name' => $name, 'browser_download_url' => $url); }
+function frisch() { $GLOBALS['transient'] = array(); $GLOBALS['http_aufrufe'] = 0; }
+/** Zwischenspeicher wie WordPress: ein Objekt mit response/no_update. */
+function leerer_transient() { return (object) array('response' => array(), 'no_update' => array()); }
+$datei = 'kommentare-tool/kommentare-tool.php';
+$gutesPaket = 'https://github.com/daimpad/kommentator/releases/download/wp-v9.9.9/kommentare-tool-9.9.9.zip';
+
+// Nur https auf github.com ist als Paketquelle zulaessig
+pruef('Update: github.com-Paket erlaubt', kommentare_paket_erlaubt($gutesPaket) === true);
+foreach (array(
+    'http://github.com/a/b.zip'                  => 'kein https',
+    'https://fremd.test/kommentare-tool.zip'     => 'fremder Host',
+    'https://raw.githubusercontent.com/a/b.zip'  => 'anderer GitHub-Host',
+    '//github.com/a/b.zip'                       => 'ohne Schema',
+    ''                                           => 'leer',
+) as $u => $warum) {
+    pruef("Update: Paket abgelehnt ($warum)", kommentare_paket_erlaubt($u) === false);
+}
+
+// Neuere Version wird angeboten
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v9.9.9', anhang('kommentare-tool-9.9.9.zip', $gutesPaket)),
+));
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: neuere Fassung wird eingetragen', isset($t->response[$datei]));
+pruef('Update: Version stimmt', isset($t->response[$datei]) && $t->response[$datei]->new_version === '9.9.9');
+pruef('Update: Paketadresse stimmt', isset($t->response[$datei]) && $t->response[$datei]->package === $gutesPaket);
+pruef('Update: fragt die Releases ab', strpos($GLOBALS['http_url'], 'api.github.com/repos/daimpad/kommentator/releases') !== false);
+
+// Zweiter Aufruf kommt aus dem Zwischenspeicher — nicht bei jedem Seitenaufruf fragen
+$vorher = $GLOBALS['http_aufrufe'];
+kommentare_update_pruefen(leerer_transient());
+pruef('Update: zweite Abfrage kommt aus dem Zwischenspeicher', $GLOBALS['http_aufrufe'] === $vorher);
+
+// Gleiche oder aeltere Version: kein Update, aber ein no_update-Eintrag
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v' . KOMMENTARE_VERSION, anhang('kommentare-tool-' . KOMMENTARE_VERSION . '.zip', $gutesPaket)),
+));
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: gleiche Fassung bietet nichts an', empty($t->response[$datei]));
+pruef('Update: gleiche Fassung erzeugt no_update', isset($t->no_update[$datei]));
+
+// Release ohne passenden Anhang ist wertlos (Quelltext-ZIP hat den falschen Aufbau)
+frisch();
+$GLOBALS['http'] = release_antwort(array(release('wp-v9.9.9', null)));
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: Release ohne Anhang wird uebergangen', empty($t->response[$datei]) && empty($t->no_update[$datei]));
+
+// Anhang von einem fremden Host wird verworfen
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v9.9.9', anhang('kommentare-tool-9.9.9.zip', 'https://fremd.test/kommentare-tool-9.9.9.zip')),
+));
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: fremder Anhang wird verworfen', empty($t->response[$datei]));
+
+// Entwuerfe, Vorabfassungen und fremde Tags zaehlen nicht
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v9.9.9', anhang('kommentare-tool-9.9.9.zip', $gutesPaket), array('draft' => true)),
+    release('wp-v9.9.8', anhang('kommentare-tool-9.9.8.zip', $gutesPaket), array('prerelease' => true)),
+    release('v9.9.7', anhang('kommentare-tool-9.9.7.zip', $gutesPaket)),
+    release('wp-v9.9.6', anhang('kommentare-tool-9.9.6.zip', $gutesPaket)),
+));
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: Entwurf/Vorab/fremdes Tag uebersprungen',
+    isset($t->response[$datei]) && $t->response[$datei]->new_version === '9.9.6');
+
+// Scheitert die Abfrage, passiert nichts — und es wird nicht sofort erneut gefragt
+frisch();
+$GLOBALS['http'] = null;                   // WP_Error
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: Fehler bleibt folgenlos', empty($t->response[$datei]) && empty($t->no_update[$datei]));
+$vorher = $GLOBALS['http_aufrufe'];
+kommentare_update_pruefen(leerer_transient());
+pruef('Update: Fehlschlag wird gemerkt, keine zweite Anfrage', $GLOBALS['http_aufrufe'] === $vorher);
+
+frisch();
+$GLOBALS['http'] = array('code' => 403, 'body' => 'rate limit');
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: HTTP-Fehlercode bleibt folgenlos', empty($t->response[$datei]));
+
+frisch();
+$GLOBALS['http'] = array('code' => 200, 'body' => 'kein JSON');
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: unbrauchbare Antwort bleibt folgenlos', empty($t->response[$datei]));
+
+// Abschaltbar per Filter — dann wird gar nicht erst gefragt
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v9.9.9', anhang('kommentare-tool-9.9.9.zip', $gutesPaket)),
+));
+$GLOBALS['filters']['kommentare_updates'][] = '__return_false_attrappe';
+function __return_false_attrappe($v) { return false; }
+$t = kommentare_update_pruefen(leerer_transient());
+pruef('Update: Filter kommentare_updates schaltet ab', empty($t->response[$datei]));
+pruef('Update: abgeschaltet fragt gar nicht erst', $GLOBALS['http_aufrufe'] === 0);
+$GLOBALS['filters']['kommentare_updates'] = array();
+
+// Repository nur im Format owner/repo — sonst Rueckfall auf die Vorgabe
+$GLOBALS['filters']['kommentare_update_repo'][] = function ($v) { return 'https://fremd.test/x'; };
+pruef('Update: unsinniges Repository faellt auf die Vorgabe zurueck',
+    kommentare_update_repo() === 'daimpad/kommentator');
+$GLOBALS['filters']['kommentare_update_repo'] = array();
+
+// Release-Notizen sind fremder Text — kein HTML darf durchkommen
+$html = kommentare_notizen_formatieren("### Titel\n* Punkt <script>alert(1)</script>\nAbsatz <b>fett</b>");
+pruef('Update: Notizen maskieren HTML', strpos($html, '<script>') === false && strpos($html, '<b>fett') === false);
+pruef('Update: Notizen erzeugen Liste und Ueberschrift',
+    strpos($html, '<ul><li>') !== false && strpos($html, '<h4>Titel</h4>') !== false);
+
+// Details-Fenster nur fuer dieses Plugin
+frisch();
+$GLOBALS['http'] = release_antwort(array(
+    release('wp-v9.9.9', anhang('kommentare-tool-9.9.9.zip', $gutesPaket)),
+));
+$info = kommentare_update_info(false, 'plugin_information', (object) array('slug' => 'kommentare-tool'));
+pruef('Update: Details-Fenster liefert Angaben', is_object($info) && $info->version === '9.9.9');
+pruef('Update: Details-Fenster liefert Paketadresse', is_object($info) && $info->download_link === $gutesPaket);
+$fremd = kommentare_update_info(false, 'plugin_information', (object) array('slug' => 'anderes-plugin'));
+pruef('Update: fremdes Plugin wird nicht beantwortet', $fremd === false);
+$andere = kommentare_update_info(false, 'query_plugins', (object) array('slug' => 'kommentare-tool'));
+pruef('Update: andere Aktion wird nicht beantwortet', $andere === false);
 
 echo "\n$ok/" . ($ok + $bad) . " Prüfungen bestanden\n";
 exit($bad ? 1 : 0);

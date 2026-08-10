@@ -18,9 +18,9 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 | `demo.css` | Erscheinungsbild der Demo-Seite im **nozilla-CI**. Färbt das Werkzeug ausschließlich über dessen CSS-Variablen um — `kommentare.css` bleibt neutral. |
 | `nozilla/` | Aus [nozilla-ci](https://github.com/daimpad/nozilla-ci) übernommen: Logo und zwei Schriftschnitte (OFL). Nur für die Demo-Seite. |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` für GitHub Pages. |
-| `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. |
+| `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. `updater.php` holt Aktualisierungen aus den GitHub-Releases. |
 | `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Testquelle fürs Werkzeug. |
-| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungsseite, Filter-Vorrang) gegen eine WordPress-Attrappe. Läuft mit, wenn PHP vorhanden ist. |
+| `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungsseite, Filter-Vorrang, Update-Anbindung) gegen eine WordPress-Attrappe. Läuft mit, wenn PHP vorhanden ist. |
 | `README.md` | Schicke Landingpage. |
 | `UEBERBLICK.md` | Ausführliche Einordnung: was/wofür/für wen. Nicht-technisch. |
 | `TECHNISCHE_DOKUMENTATION.md` | API, Datenmodell, Theming, Filter, Tests. |
@@ -94,6 +94,13 @@ läuft weiter über Pages/`main`. Diese Trennung nicht vermischen.
   Abschnitt. `npm run build-plugin` prüft das und bricht bei Abweichung ab
   (auch bei nicht synchronisierten Assets).
 - `dist/` ist Build-Ausgabe und liegt in `.gitignore`.
+- **Der Tag-Push scheitert in Agenten-Umgebungen an HTTP 403.** Dann den
+  Workflow von Hand auslösen (`workflow_dispatch`, Version eintragen) — der
+  Release-Schritt legt den Tag selbst an, das Ergebnis ist dasselbe.
+- **Installierte Plugins ziehen sich das Update selbst** (`updater.php`, ab
+  1.17.0). Der Release ist damit die Auslieferung: Der Anhang muss
+  `kommentare-tool-<version>.zip` heißen und an einem `wp-v*`-Tag hängen,
+  sonst findet ihn niemand.
 
 ## Git-Workflow
 
