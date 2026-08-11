@@ -229,6 +229,79 @@ GitHubs CDN cacht einige Minuten.
 > „GitHub Actions“ als Quelle ist für dieses rein statische Projekt **nicht**
 > nötig; „Deploy from a branch“ ist der einfachere Weg.
 
+### Auf einen eigenen Webserver ausliefern
+
+Wer die Seite lieber unter eigener Adresse betreibt, legt das Repository als
+**Git-Klon in den Webroot** und lässt es sich nach jedem Push selbst
+aktualisieren. Dafür liegen zwei Dateien bereit: `deploy.php` (der Auslöser)
+und `.htaccess` (die Absicherung).
+
+**Zuerst das Wichtigste: `.git/` gehört nicht ins Web.** Ein Klon im Webroot
+macht sonst die vollständige Historie öffentlich lesbar — probier
+`https://deine-domain/.git/config`. Die mitgelieferte `.htaccess` sperrt das
+(Apache). Für **nginx** gibt es kein Gegenstück; dort in den Server-Block:
+
+```nginx
+location ~ /\.git   { deny all; }
+location ~ /\.      { deny all; }
+location ~ ^/(test|scripts|wordpress|node_modules)/ { deny all; }
+```
+
+**Einrichten — vier Schritte:**
+
+1. **Klonen** (falls noch nicht geschehen):
+
+   ```bash
+   cd /pfad/zum/webroot
+   git clone https://github.com/daimpad/kommentator.git .
+   ```
+
+2. **Geheimwort würfeln und ablegen** — eine Ebene **über** dem Klon, damit es
+   nie ausgeliefert werden kann:
+
+   ```bash
+   openssl rand -hex 32 > ../.kommentator-deploy-secret
+   chmod 600 ../.kommentator-deploy-secret
+   ```
+
+   Alternativ als Umgebungsvariable `KOMMENTATOR_DEPLOY_SECRET`.
+
+3. **Haken in GitHub setzen:** Repo → **Settings → Webhooks → Add webhook**
+
+   | Feld | Wert |
+   |---|---|
+   | Payload URL | `https://deine-domain/deploy.php` |
+   | Content type | `application/json` |
+   | Secret | derselbe Wert wie in Schritt 2 |
+   | Events | nur **„Just the push event"** |
+
+4. **Probe:** GitHub schickt beim Anlegen sofort ein `ping`. Unter *Recent
+   Deliveries* muss **200** mit dem Rumpf `pong` stehen. Danach einmal auf
+   `main` pushen — die Antwort lautet dann
+   `Ausgeliefert: main -> <kurze Kennung>`.
+
+**Was dabei passiert:** `deploy.php` prüft die Signatur (`X-Hub-Signature-256`)
+mit `hash_equals` über den rohen Rumpf, und zwar **bevor** es den Inhalt
+überhaupt ansieht. Erst danach folgt `git fetch` + `git reset --hard
+origin/main`. Alles andere wird abgewiesen: falsche Signatur (401), fehlendes
+Geheimwort (401), anderer Zweig oder ein Tag-Push wie `wp-v1.17.0` (202,
+folgenlos), GET statt POST (405). Ein Protokoll landet als
+`kommentator-deploy.log` neben dem Geheimwort, also außerhalb des Webroots.
+
+> **Der Klon ist eine Auslieferung, kein Arbeitsplatz.** `reset --hard`
+> verwirft lokale Änderungen an versionierten Dateien — das ist die Absicht.
+> Wer dort direkt etwas anpassen will, macht es im Repository und pusht.
+
+**Wenn nichts passiert**, steht die Antwort in GitHub unter *Recent
+Deliveries*:
+
+| Antwort | Ursache |
+|---|---|
+| `404` | `.htaccess` sperrt zu viel, oder PHP läuft für diesen Pfad nicht |
+| `401 Signatur ungueltig` | Geheimwort stimmt nicht überein, oder die Datei liegt am falschen Ort |
+| `500 Auslieferung fehlgeschlagen` | Details in `../kommentator-deploy.log` — meist Rechte oder Gits „dubious ownership" (deshalb setzt das Skript `safe.directory`) |
+| `202 Anderer Zweig` | erwartet wird `main`; anderer Zweig via `KOMMENTATOR_DEPLOY_BRANCH` |
+
 ---
 
 ## 7. Echten Zugriffsschutz einrichten

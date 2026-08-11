@@ -19,10 +19,13 @@ interne Funktionsweise des Kommentar-Werkzeugs.
 | `demo.css` | Erscheinungsbild der Demo-Seite (nozilla-CI); themt das Werkzeug über dessen CSS-Variablen |
 | `nozilla/` | Logo + zwei Schriftschnitte aus dem nozilla-CI (OFL), nur für die Demo |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` (für GitHub Pages) |
+| `deploy.php` | GitHub-Webhook: zieht einen Git-Klon im Webroot nach (eigener Server) |
+| `.htaccess` | sperrt `.git/` und die Entwicklungsordner auf Apache (auf Pages wirkungslos) |
 | `wordpress/kommentare-tool/` | installierbares WordPress-Plugin (bündelt die Assets) |
 | `wordpress/kommentare-tool/updater.php` | Update-Anbindung an die GitHub-Releases |
 | `test/acceptance.mjs` | Headless-Akzeptanztest des Werkzeugs (Playwright) |
 | `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungen, Filter-Vorrang, Update-Anbindung) — ohne WordPress |
+| `test/deploy.php` | Test des Auslieferungs-Endpunkts (Signatur, Ereignis, Zweig) |
 | `UEBERBLICK.md` | Was der Kommentator ist, wofür er taugt, für wen |
 
 Grundprinzipien: **kein Build**, kein Bundler, **keine externen Abhängigkeiten**,

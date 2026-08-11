@@ -1,0 +1,44 @@
+# ============================================================================
+# Nur für die Auslieferung auf einem eigenen Apache-Server nötig — auf GitHub
+# Pages wird diese Datei ignoriert.
+#
+# Liegt das Repository als Git-Klon im Webroot, ist ohne diese Regeln der
+# Ordner .git/ öffentlich lesbar. Darin stehen die vollständige Historie, die
+# Adressen der Gegenstellen und alles, was je eingecheckt wurde. Bei einem
+# öffentlichen Repository ist das kein Geheimnisverlust — trotzdem gehört es
+# nicht ins Web, und bei einem privaten Klon wäre es einer.
+#
+# Für nginx gibt es kein Gegenstück zu dieser Datei. Dort in den Server-Block:
+#     location ~ /\.git   { deny all; }
+#     location ~ /\.      { deny all; }
+#     location ~ ^/(test|scripts|wordpress|node_modules)/ { deny all; }
+# ============================================================================
+
+# Alles, was mit einem Punkt beginnt: .git, .github, .kommentator-*
+RedirectMatch 404 /\.(?!well-known)
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "^\.">
+    Require all denied
+  </FilesMatch>
+  # Protokoll und Sperrdatei der Auslieferung, falls sie doch im Klon landen
+  <FilesMatch "^kommentator-deploy\.log$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+# Nichts, was zum Betrieb der Seite gehört: Tests, Bauskripte, Plugin-Quelle
+RedirectMatch 404 ^/(test|scripts|node_modules|dist)/
+RedirectMatch 404 ^/wordpress/
+
+# Verzeichnisauflistung aus
+Options -Indexes
+
+# Die Wurzel zeigt auf die Demo
+DirectoryIndex index.html demo.html

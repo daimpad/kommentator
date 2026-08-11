@@ -108,6 +108,7 @@ Das war alles — Randspalte und Menü entstehen automatisch. Ausführlich im
 | **Statische Seite** | `kommentare.css` + `kommentare.js` einbinden, `init(...)` aufrufen |
 | **WordPress** | Plugin-ZIP aus den [Releases](../../releases) (Tag `wp-v*`) hochladen → [Tutorial](TUTORIAL.md#5-in-wordpress-installieren) |
 | **GitHub Pages** | Dateien pushen, Pages auf `main`/root → [Tutorial](TUTORIAL.md#6-veröffentlichen-auf-github-pages) |
+| **Eigener Server** | Git-Klon im Webroot, `deploy.php` zieht ihn per GitHub-Webhook nach → [Tutorial](TUTORIAL.md#6-veröffentlichen-auf-github-pages) |
 
 Die [Demo-Seite](https://daimpad.github.io/kommentator/) trägt das
 [nozilla-Erscheinungsbild](https://github.com/daimpad/nozilla-ci) — umgesetzt

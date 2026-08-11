@@ -18,9 +18,11 @@ zusammenführen — ohne Server, ohne Build, ohne externe Abhängigkeiten.
 | `demo.css` | Erscheinungsbild der Demo-Seite im **nozilla-CI**. Färbt das Werkzeug ausschließlich über dessen CSS-Variablen um — `kommentare.css` bleibt neutral. |
 | `nozilla/` | Aus [nozilla-ci](https://github.com/daimpad/nozilla-ci) übernommen: Logo und zwei Schriftschnitte (OFL). Nur für die Demo-Seite. |
 | `index.html` | Wurzel-Weiterleitung auf `demo.html` für GitHub Pages. |
+| `deploy.php` / `.htaccess` | Nur für einen **eigenen** Webserver: GitHub-Webhook zieht den Klon im Webroot nach; die `.htaccess` sperrt `.git/`. Auf Pages ohne Wirkung. |
 | `wordpress/kommentare-tool/` | WordPress-Plugin; `assets/` sind **Kopien** von `kommentare.{js,css}`. `updater.php` holt Aktualisierungen aus den GitHub-Releases. |
 | `test/acceptance.mjs` | Headless-Playwright-Test, treibt `demo.html`. Testquelle fürs Werkzeug. |
 | `test/plugin-einstellungen.php` | Test der Plugin-Logik (Einstellungsseite, Filter-Vorrang, Update-Anbindung) gegen eine WordPress-Attrappe. Läuft mit, wenn PHP vorhanden ist. |
+| `test/deploy.php` | Test des Auslieferungs-Endpunkts (Signatur, Ereignis, Zweig) — ohne Webserver, ohne Git. |
 | `README.md` | Schicke Landingpage. |
 | `UEBERBLICK.md` | Ausführliche Einordnung: was/wofür/für wen. Nicht-technisch. |
 | `TECHNISCHE_DOKUMENTATION.md` | API, Datenmodell, Theming, Filter, Tests. |
@@ -79,6 +81,12 @@ existiert erst **nach** dem Modal.
 GitHub Pages, Quelle **„Deploy from a branch“ → `main` / root**. Jeder Push auf
 `main` baut automatisch neu (`.nojekyll` liegt im Root). Nicht auf „GitHub
 Actions“ umstellen — für rein statische Dateien unnötig.
+
+Daneben kann dasselbe `main` auf einem **eigenen Webserver** als Git-Klon im
+Webroot liegen: `deploy.php` nimmt den GitHub-Webhook entgegen, prüft die
+Signatur und macht `fetch` + `reset --hard`. Beides läuft nebeneinander, keins
+weiß vom anderen. Wichtig: In `deploy.php` darf **nie** ein Geheimwort landen —
+es kommt aus `KOMMENTATOR_DEPLOY_SECRET` oder einer Datei über dem Klon.
 
 ## Release: Plugin getrennt vom Werkzeug
 
